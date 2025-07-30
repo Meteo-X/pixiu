@@ -1,0 +1,15 @@
+{
+    "name": "Pixiu Dev Container",
+    "image": "mcr.microsoft.com/devcontainers/universal:linux",
+    "features": {
+        "./features/claude": {}
+    },
+    "customizations": {
+        "vscode": {
+            "settings": {},
+            "extensions": [
+                "anthropic.claude-code"
+            ]
+        }
+    }
+}
