@@ -255,10 +255,10 @@ graph TB
 ```mermaid
 graph LR
     subgraph DataCollector["数据采集服务"]
-        ConnMgr[连接管理器<br/>Connection Manager]
-        DataParser[数据解析器<br/>Data Parser]
-        DataValidator[数据验证器<br/>Data Validator]
-        KafkaProducer[Kafka生产者<br/>Kafka Producer]
+        ConnMgr["连接管理器<br/>Connection Manager"]
+        DataParser["数据解析器<br/>Data Parser"]
+        DataValidator["数据验证器<br/>Data Validator"]
+        KafkaProducer["Kafka生产者<br/>Kafka Producer"]
         
         ConnMgr --> DataParser
         DataParser --> DataValidator
@@ -406,21 +406,21 @@ class BinanceAdapter(ITradeAdapter):
 graph TD
     subgraph Manager["Manager服务状态管理"]
         subgraph KeyMgmt["密钥管理模块"]
-            K1[加密存储<br/>Encrypted Storage]
-            K2[权限控制<br/>Access Control]
-            K3[定期轮换<br/>Periodic Rotation]
+            K1["加密存储<br/>Encrypted Storage"]
+            K2["权限控制<br/>Access Control"]
+            K3["定期轮换<br/>Periodic Rotation"]
         end
         
         subgraph AcctMgmt["账户管理模块"]
-            A1[余额跟踪<br/>Balance Tracking]
-            A2[持仓管理<br/>Position Management]
-            A3[盈亏计算<br/>P&L Calculation]
+            A1["余额跟踪<br/>Balance Tracking"]
+            A2["持仓管理<br/>Position Management"]
+            A3["盈亏计算<br/>P&L Calculation"]
         end
         
         subgraph FundMgmt["资金管理模块"]
-            F1[策略资金分配<br/>Strategy Fund Allocation]
-            F2[使用率监控<br/>Utilization Monitoring]
-            F3[风险敞口计算<br/>Risk Exposure Calculation]
+            F1["策略资金分配<br/>Strategy Fund Allocation"]
+            F2["使用率监控<br/>Utilization Monitoring"]
+            F3["风险敞口计算<br/>Risk Exposure Calculation"]
         end
     end
     
@@ -641,21 +641,21 @@ class MarketOrderExecution(ExecutionStrategy):
 graph TD
     subgraph Storage["存储架构设计"]
         subgraph PG["业务数据 (PostgreSQL)"]
-            PG1[配置数据<br/>策略配置, 交易所配置, 风控规则]
-            PG2[交易数据<br/>订单记录, 成交记录, 持仓历史]
-            PG3[账户数据<br/>账户信息, 余额快照, 盈亏统计]
+            PG1["配置数据<br/>策略配置, 交易所配置, 风控规则"]
+            PG2["交易数据<br/>订单记录, 成交记录, 持仓历史"]
+            PG3["账户数据<br/>账户信息, 余额快照, 盈亏统计"]
         end
         
         subgraph TS["时序数据 (TimescaleDB)"]
-            TS1[市场数据<br/>Tick数据, K线数据, 深度数据]
-            TS2[指标数据<br/>技术指标, 自定义指标]
-            TS3[系统指标<br/>性能指标, 业务指标]
+            TS1["市场数据<br/>Tick数据, K线数据, 深度数据"]
+            TS2["指标数据<br/>技术指标, 自定义指标"]
+            TS3["系统指标<br/>性能指标, 业务指标"]
         end
         
         subgraph Redis["缓存数据 (Redis)"]
-            R1[实时状态<br/>当前持仓, 挂单列表, 策略状态]
-            R2[市场数据缓存<br/>最新价格, 订单簿]
-            R3[计算缓存<br/>指标缓存, 统计缓存]
+            R1["实时状态<br/>当前持仓, 挂单列表, 策略状态"]
+            R2["市场数据缓存<br/>最新价格, 订单簿"]
+            R3["计算缓存<br/>指标缓存, 统计缓存"]
         end
     end
     
@@ -902,19 +902,19 @@ volumes:
 
 ```mermaid
 graph TD
-    Internet[Internet] --> LB[负载均衡器<br/>Load Balancer - Nginx]
+    Internet["Internet"] --> LB["负载均衡器<br/>Load Balancer - Nginx"]
     
-    LB --> ZoneA[Zone A<br/>API & Core Services]
-    LB --> ZoneB[Zone B<br/>API & Core Services]
-    LB --> ZoneC[Zone C<br/>API & Core Services]
+    LB --> ZoneA["Zone A<br/>API & Core Services"]
+    LB --> ZoneB["Zone B<br/>API & Core Services"]
+    LB --> ZoneC["Zone C<br/>API & Core Services"]
     
-    ZoneA --> Kafka[Kafka Cluster<br/>3 nodes]
+    ZoneA --> Kafka["Kafka Cluster<br/>3 nodes"]
     ZoneB --> Kafka
     ZoneC --> Kafka
     
-    Kafka --> PG[PostgreSQL<br/>Primary]
-    Kafka --> Redis[Redis<br/>Cluster]
-    Kafka --> S3[Storage<br/>S3]
+    Kafka --> PG["PostgreSQL<br/>Primary"]
+    Kafka --> Redis["Redis<br/>Cluster"]
+    Kafka --> S3["Storage<br/>S3"]
     
     %% Styling
     classDef external fill:#e8f4fd,stroke:#1565c0,stroke-width:2px
@@ -980,32 +980,32 @@ spec:
 graph TD
     subgraph Security["安全架构层次"]
         subgraph App["应用层安全"]
-            A1[API认证 - JWT]
-            A2[权限控制 - RBAC]
-            A3[请求签名]
-            A4[限流控制]
+            A1["API认证 - JWT"]
+            A2["权限控制 - RBAC"]
+            A3["请求签名"]
+            A4["限流控制"]
         end
         
         subgraph Data["数据层安全"]
             subgraph Encryption["数据加密"]
-                D1[传输加密 - TLS]
-                D2[存储加密 - AES]
+                D1["传输加密 - TLS"]
+                D2["存储加密 - AES"]
             end
             subgraph KeyMgmt["密钥管理"]
-                D3[Vault集成]
-                D4[定期轮换]
+                D3["Vault集成"]
+                D4["定期轮换"]
             end
             subgraph Access["访问控制"]
-                D5[数据库权限]
-                D6[网络隔离]
+                D5["数据库权限"]
+                D6["网络隔离"]
             end
         end
         
         subgraph Ops["运维层安全"]
-            O1[审计日志]
-            O2[异常检测]
-            O3[安全扫描]
-            O4[应急响应]
+            O1["审计日志"]
+            O2["异常检测"]
+            O3["安全扫描"]
+            O4["应急响应"]
         end
     end
     
@@ -1147,9 +1147,9 @@ groups:
 ```mermaid
 graph TD
     subgraph TestPyramid["测试金字塔"]
-        E2E[端到端测试<br/>E2E Testing<br/>完整交易流程]
-        Integration[集成测试<br/>Integration Testing<br/>API测试, 多服务协作]
-        Unit[单元测试<br/>Unit Testing<br/>策略逻辑, 工具函数]
+        E2E["端到端测试<br/>E2E Testing<br/>完整交易流程"]
+        Integration["集成测试<br/>Integration Testing<br/>API测试, 多服务协作"]
+        Unit["单元测试<br/>Unit Testing<br/>策略逻辑, 工具函数"]
         
         E2E --> Integration
         Integration --> Unit

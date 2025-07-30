@@ -12,39 +12,39 @@ Pixiu follows a microservice architecture pattern with event-driven communicatio
 graph TB
     %% External Systems
     subgraph External["External Systems"]
-        Binance[Binance API]
-        OKX[OKX API]
-        Uniswap[Uniswap DEX]
+        Binance["Binance API"]
+        OKX["OKX API"]
+        Uniswap["Uniswap DEX"]
     end
 
     %% Data Collection Layer
     subgraph DataCollection["Data Collection Layer"]
-        ExchangeCollector[Exchange Collector<br/>CEX Market Data]
-        BlockchainCollector[Blockchain Collector<br/>On-chain & DEX Data]
-        AuxiliaryCollector[Auxiliary Collector<br/>Supplementary Data]
+        ExchangeCollector["Exchange Collector<br/>CEX Market Data"]
+        BlockchainCollector["Blockchain Collector<br/>On-chain & DEX Data"]
+        AuxiliaryCollector["Auxiliary Collector<br/>Supplementary Data"]
     end
 
     %% Message Bus
     subgraph MessageBus["Kafka Message Bus"]
-        Topics[Topics:<br/>market.*, signals.*<br/>orders.*, risk.*]
+        Topics["Topics:<br/>market.*, signals.*<br/>orders.*, risk.*"]
     end
 
     %% Core Services
     subgraph CoreServices["Core Services"]
-        Manager[Manager Service<br/>(Stateful)<br/>State Management]
-        Strategy[Strategy Service<br/>Trading Logic]
-        Risk[Risk Service<br/>Risk Control]
+        Manager["Manager Service<br/>(Stateful)<br/>State Management"]
+        Strategy["Strategy Service<br/>Trading Logic"]
+        Risk["Risk Service<br/>Risk Control"]
     end
 
     %% Infrastructure
-    Execution[Execution Service<br/>Order Management]
-    APIGateway[API Gateway<br/>Unified Entry Point]
+    Execution["Execution Service<br/>Order Management"]
+    APIGateway["API Gateway<br/>Unified Entry Point"]
 
     %% Exchange Adapters
     subgraph Adapters["Exchange Adapters"]
-        BinanceAdapter[Binance]
-        OKXAdapter[OKX]
-        DEXAdapter[DEX]
+        BinanceAdapter["Binance"]
+        OKXAdapter["OKX"]
+        DEXAdapter["DEX"]
     end
 
     %% Connections
@@ -72,39 +72,39 @@ graph TB
 
 ```mermaid
 graph TD
-    A[pixiu/] --> B[services/]
-    A --> C[deployment/]
-    A --> D[scripts/]
-    A --> E[docs/]
+    A["pixiu/"] --> B["services/"]
+    A --> C["deployment/"]
+    A --> D["scripts/"]
+    A --> E["docs/"]
     
-    B --> F[data-collection/]
-    B --> G[adapters/]
-    B --> H[core/]
-    B --> I[infrastructure/]
+    B --> F["data-collection/"]
+    B --> G["adapters/"]
+    B --> H["core/"]
+    B --> I["infrastructure/"]
     
-    F --> F1[exchange-collector/<br/>CEX market data - Python]
-    F --> F2[blockchain-collector/<br/>On-chain data - Go]
-    F --> F3[auxiliary-collector/<br/>Supplementary data - Python]
+    F --> F1["exchange-collector/<br/>CEX market data - Python"]
+    F --> F2["blockchain-collector/<br/>On-chain data - Go"]
+    F --> F3["auxiliary-collector/<br/>Supplementary data - Python"]
     
-    G --> G1[binance-adapter/<br/>Binance integration]
-    G --> G2[okx-adapter/<br/>OKX integration]
-    G --> G3[dex-adapter/<br/>DEX integration]
+    G --> G1["binance-adapter/<br/>Binance integration"]
+    G --> G2["okx-adapter/<br/>OKX integration"]
+    G --> G3["dex-adapter/<br/>DEX integration"]
     
-    H --> H1[manager-service/<br/>State management - Python]
-    H --> H2[strategy-service/<br/>Strategy engine - Python]
-    H --> H3[risk-service/<br/>Risk control - Python]
-    H --> H4[execution-service/<br/>Order execution - Python/Rust]
+    H --> H1["manager-service/<br/>State management - Python"]
+    H --> H2["strategy-service/<br/>Strategy engine - Python"]
+    H --> H3["risk-service/<br/>Risk control - Python"]
+    H --> H4["execution-service/<br/>Order execution - Python/Rust"]
     
-    I --> I1[api-gateway/<br/>API Gateway - Go]
-    I --> I2[config-service/<br/>Configuration management]
+    I --> I1["api-gateway/<br/>API Gateway - Go"]
+    I --> I2["config-service/<br/>Configuration management"]
     
-    C --> C1[docker-compose/<br/>Docker Compose files]
-    C --> C2[kubernetes/<br/>K8s manifests]
-    C --> C3[helm/<br/>Helm charts]
+    C --> C1["docker-compose/<br/>Docker Compose files"]
+    C --> C2["kubernetes/<br/>K8s manifests"]
+    C --> C3["helm/<br/>Helm charts"]
     
-    E --> E1[api/<br/>API documentation]
-    E --> E2[architecture/<br/>Architecture docs]
-    E --> E3[deployment/<br/>Deployment guides]
+    E --> E1["api/<br/>API documentation"]
+    E --> E2["architecture/<br/>Architecture docs"]
+    E --> E3["deployment/<br/>Deployment guides"]
     
     %% Styling
     classDef folder fill:#e3f2fd,stroke:#1976d2,stroke-width:2px

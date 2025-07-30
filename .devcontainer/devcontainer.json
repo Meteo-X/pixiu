@@ -8,7 +8,8 @@
         "vscode": {
             "settings": {},
             "extensions": [
-                "anthropic.claude-code"
+                "anthropic.claude-code",
+                "bierner.markdown-mermaid"
             ]
         }
     }
