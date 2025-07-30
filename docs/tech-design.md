@@ -252,20 +252,22 @@ graph TB
 
 ### 3.1.2 服务架构
 
-```
-数据采集服务架构：
-
-┌─────────────────────────────────────────────┐
-│           数据采集服务                        │
-├─────────────────────────────────────────────┤
-│  ┌─────────────┐  ┌─────────────┐          │
-│  │  连接管理器  │  │  数据解析器  │          │
-│  └─────────────┘  └─────────────┘          │
-│  ┌─────────────┐  ┌─────────────┐          │
-│  │  数据验证器  │  │  Kafka生产者 │          │
-│  └─────────────┘  └─────────────┘          │
-└─────────────────────────────────────────────┘
-
+```mermaid
+graph LR
+    subgraph DataCollector["数据采集服务"]
+        ConnMgr[连接管理器<br/>Connection Manager]
+        DataParser[数据解析器<br/>Data Parser]
+        DataValidator[数据验证器<br/>Data Validator]
+        KafkaProducer[Kafka生产者<br/>Kafka Producer]
+        
+        ConnMgr --> DataParser
+        DataParser --> DataValidator
+        DataValidator --> KafkaProducer
+    end
+    
+    %% Styling
+    classDef component fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
+    class ConnMgr,DataParser,DataValidator,KafkaProducer component
 ```
 
 ### 3.1.3 数据模型
@@ -400,32 +402,34 @@ class BinanceAdapter(ITradeAdapter):
 
 ### 3.3.2 状态管理设计
 
-```
-Manager服务状态管理：
-
-┌─────────────────────────────────────────────┐
-│              Manager服务                     │
-├─────────────────────────────────────────────┤
-│  ┌─────────────────────────────────────┐   │
-│  │         密钥管理模块                  │   │
-│  │  - 加密存储                          │   │
-│  │  - 权限控制                          │   │
-│  │  - 定期轮换                          │   │
-│  └─────────────────────────────────────┘   │
-│  ┌─────────────────────────────────────┐   │
-│  │         账户管理模块                  │   │
-│  │  - 余额跟踪                          │   │
-│  │  - 持仓管理                          │   │
-│  │  - 盈亏计算                          │   │
-│  └─────────────────────────────────────┘   │
-│  ┌─────────────────────────────────────┐   │
-│  │         资金管理模块                  │   │
-│  │  - 策略资金分配                      │   │
-│  │  - 使用率监控                        │   │
-│  │  - 风险敞口计算                      │   │
-│  └─────────────────────────────────────┘   │
-└─────────────────────────────────────────────┘
-
+```mermaid
+graph TD
+    subgraph Manager["Manager服务状态管理"]
+        subgraph KeyMgmt["密钥管理模块"]
+            K1[加密存储<br/>Encrypted Storage]
+            K2[权限控制<br/>Access Control]
+            K3[定期轮换<br/>Periodic Rotation]
+        end
+        
+        subgraph AcctMgmt["账户管理模块"]
+            A1[余额跟踪<br/>Balance Tracking]
+            A2[持仓管理<br/>Position Management]
+            A3[盈亏计算<br/>P&L Calculation]
+        end
+        
+        subgraph FundMgmt["资金管理模块"]
+            F1[策略资金分配<br/>Strategy Fund Allocation]
+            F2[使用率监控<br/>Utilization Monitoring]
+            F3[风险敞口计算<br/>Risk Exposure Calculation]
+        end
+    end
+    
+    %% Styling
+    classDef module fill:#ffebee,stroke:#c62828,stroke-width:2px
+    classDef function fill:#e8f5e8,stroke:#2e7d32,stroke-width:1px
+    
+    class KeyMgmt,AcctMgmt,FundMgmt module
+    class K1,K2,K3,A1,A2,A3,F1,F2,F3 function
 ```
 
 ### 3.3.3 数据持久化
@@ -633,47 +637,36 @@ class MarketOrderExecution(ExecutionStrategy):
 
 ### 4.1 存储架构
 
-```
-存储架构设计：
-
-业务数据（PostgreSQL）
-├── 配置数据
-│   ├── 策略配置
-│   ├── 交易所配置
-│   └── 风控规则
-├── 交易数据
-│   ├── 订单记录
-│   ├── 成交记录
-│   └── 持仓历史
-└── 账户数据
-    ├── 账户信息
-    ├── 余额快照
-    └── 盈亏统计
-
-时序数据（TimescaleDB）
-├── 市场数据
-│   ├── Tick数据
-│   ├── K线数据
-│   └── 深度数据
-├── 指标数据
-│   ├── 技术指标
-│   └── 自定义指标
-└── 系统指标
-    ├── 性能指标
-    └── 业务指标
-
-缓存数据（Redis）
-├── 实时状态
-│   ├── 当前持仓
-│   ├── 挂单列表
-│   └── 策略状态
-├── 市场数据缓存
-│   ├── 最新价格
-│   └── 订单簿
-└── 计算缓存
-    ├── 指标缓存
-    └── 统计缓存
-
+```mermaid
+graph TD
+    subgraph Storage["存储架构设计"]
+        subgraph PG["业务数据 (PostgreSQL)"]
+            PG1[配置数据<br/>策略配置, 交易所配置, 风控规则]
+            PG2[交易数据<br/>订单记录, 成交记录, 持仓历史]
+            PG3[账户数据<br/>账户信息, 余额快照, 盈亏统计]
+        end
+        
+        subgraph TS["时序数据 (TimescaleDB)"]
+            TS1[市场数据<br/>Tick数据, K线数据, 深度数据]
+            TS2[指标数据<br/>技术指标, 自定义指标]
+            TS3[系统指标<br/>性能指标, 业务指标]
+        end
+        
+        subgraph Redis["缓存数据 (Redis)"]
+            R1[实时状态<br/>当前持仓, 挂单列表, 策略状态]
+            R2[市场数据缓存<br/>最新价格, 订单簿]
+            R3[计算缓存<br/>指标缓存, 统计缓存]
+        end
+    end
+    
+    %% Styling
+    classDef postgres fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
+    classDef timescale fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px
+    classDef redis fill:#fff3e0,stroke:#f57c00,stroke-width:2px
+    
+    class PG1,PG2,PG3 postgres
+    class TS1,TS2,TS3 timescale
+    class R1,R2,R3 redis
 ```
 
 ### 4.2 数据模型设计
@@ -907,40 +900,32 @@ volumes:
 
 ### 6.2 生产环境部署
 
-```
-生产环境架构：
-
-                    Internet
-                       │
-                ┌──────┴──────┐
-                │  负载均衡器  │
-                │   (Nginx)    │
-                └──────┬──────┘
-                       │
-    ┌──────────────────┼──────────────────┐
-    │                  │                  │
-┌───┴───┐        ┌─────┴─────┐      ┌────┴────┐
-│ Zone A │        │  Zone B   │      │ Zone C  │
-│       │        │           │      │         │
-│ - API │        │ - API     │      │ - API   │
-│ - Core│        │ - Core    │      │ - Core  │
-│Services│       │ Services  │      │Services │
-└───┬───┘        └─────┬─────┘      └────┬────┘
-    │                  │                  │
-    └──────────────────┼──────────────────┘
-                       │
-              ┌────────┴────────┐
-              │  Kafka Cluster  │
-              │   (3 nodes)     │
-              └────────┬────────┘
-                       │
-        ┌──────────────┼──────────────┐
-        │              │              │
-   ┌────┴────┐    ┌────┴────┐   ┌────┴────┐
-   │PostgreSQL│   │  Redis  │   │ Storage │
-   │ Primary  │   │ Cluster │   │   S3    │
-   └─────────┘    └─────────┘   └─────────┘
-
+```mermaid
+graph TD
+    Internet[Internet] --> LB[负载均衡器<br/>Load Balancer - Nginx]
+    
+    LB --> ZoneA[Zone A<br/>API & Core Services]
+    LB --> ZoneB[Zone B<br/>API & Core Services]
+    LB --> ZoneC[Zone C<br/>API & Core Services]
+    
+    ZoneA --> Kafka[Kafka Cluster<br/>3 nodes]
+    ZoneB --> Kafka
+    ZoneC --> Kafka
+    
+    Kafka --> PG[PostgreSQL<br/>Primary]
+    Kafka --> Redis[Redis<br/>Cluster]
+    Kafka --> S3[Storage<br/>S3]
+    
+    %% Styling
+    classDef external fill:#e8f4fd,stroke:#1565c0,stroke-width:2px
+    classDef zone fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px
+    classDef kafka fill:#fff3e0,stroke:#f57c00,stroke-width:3px
+    classDef storage fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
+    
+    class Internet,LB external
+    class ZoneA,ZoneB,ZoneC zone
+    class Kafka kafka
+    class PG,Redis,S3 storage
 ```
 
 ### 6.3 Kubernetes部署配置
@@ -991,32 +976,47 @@ spec:
 
 ### 7.1 安全架构
 
-```
-安全层次：
-
-应用层安全
-├── API认证（JWT）
-├── 权限控制（RBAC）
-├── 请求签名
-└── 限流控制
-
-数据层安全
-├── 数据加密
-│   ├── 传输加密（TLS）
-│   └── 存储加密（AES）
-├── 密钥管理
-│   ├── Vault集成
-│   └── 定期轮换
-└── 访问控制
-    ├── 数据库权限
-    └── 网络隔离
-
-运维层安全
-├── 审计日志
-├── 异常检测
-├── 安全扫描
-└── 应急响应
-
+```mermaid
+graph TD
+    subgraph Security["安全架构层次"]
+        subgraph App["应用层安全"]
+            A1[API认证 - JWT]
+            A2[权限控制 - RBAC]
+            A3[请求签名]
+            A4[限流控制]
+        end
+        
+        subgraph Data["数据层安全"]
+            subgraph Encryption["数据加密"]
+                D1[传输加密 - TLS]
+                D2[存储加密 - AES]
+            end
+            subgraph KeyMgmt["密钥管理"]
+                D3[Vault集成]
+                D4[定期轮换]
+            end
+            subgraph Access["访问控制"]
+                D5[数据库权限]
+                D6[网络隔离]
+            end
+        end
+        
+        subgraph Ops["运维层安全"]
+            O1[审计日志]
+            O2[异常检测]
+            O3[安全扫描]
+            O4[应急响应]
+        end
+    end
+    
+    %% Styling
+    classDef app fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
+    classDef data fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px
+    classDef ops fill:#fff3e0,stroke:#f57c00,stroke-width:2px
+    
+    class A1,A2,A3,A4 app
+    class D1,D2,D3,D4,D5,D6 data
+    class O1,O2,O3,O4 ops
 ```
 
 ### 7.2 API密钥管理
@@ -1144,18 +1144,25 @@ groups:
 
 ### 9.1 测试层次
 
-```
-测试金字塔：
-
-         ╱╲
-        ╱E2E╲      <- 端到端测试
-       ╱──────╲       - 完整交易流程
-      ╱ 集成测试 ╲     - API测试
-     ╱────────────╲   - 多服务协作
-    ╱  单元测试    ╲  <- 核心逻辑测试
-   ╱────────────────╲    - 策略逻辑
-  ╱──────────────────╲   - 工具函数
-
+```mermaid
+graph TD
+    subgraph TestPyramid["测试金字塔"]
+        E2E[端到端测试<br/>E2E Testing<br/>完整交易流程]
+        Integration[集成测试<br/>Integration Testing<br/>API测试, 多服务协作]
+        Unit[单元测试<br/>Unit Testing<br/>策略逻辑, 工具函数]
+        
+        E2E --> Integration
+        Integration --> Unit
+    end
+    
+    %% Styling
+    classDef e2e fill:#ffcdd2,stroke:#d32f2f,stroke-width:2px
+    classDef integration fill:#fff3e0,stroke:#f57c00,stroke-width:2px
+    classDef unit fill:#e8f5e8,stroke:#2e7d32,stroke-width:3px
+    
+    class E2E e2e
+    class Integration integration
+    class Unit unit
 ```
 
 ### 9.2 测试工具

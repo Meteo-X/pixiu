@@ -8,69 +8,112 @@ Pixiu follows a microservice architecture pattern with event-driven communicatio
 
 ### System Architecture
 
-```
-┌─────────────┐     ┌─────────────┐     ┌─────────────┐
-│   Binance   │     │     OKX     │     │  Uniswap    │
-└──────┬──────┘     └──────┬──────┘     └──────┬──────┘
-       │                   │                    │
-┌──────┴───────────────────┴────────────────────┴──────┐
-│                  Data Collection Layer                │
-├───────────────┬──────────────┬────────────────────────┤
-│Exchange       │Blockchain    │Auxiliary               │
-│Collector      │Collector     │Collector               │
-└───────┬───────┴──────┬───────┴────────┬───────────────┘
-        │              │                 │
-┌───────┴──────────────┴─────────────────┴──────────────┐
-│                    Kafka Message Bus                   │
-│  Topics: market.*, signals.*, orders.*, risk.*        │
-└───────┬──────────────┬─────────────────┬──────────────┘
-        │              │                 │
-┌───────┴───────┬──────┴───────┬────────┴───────────────┐
-│Manager Service│Strategy      │Risk Service            │
-│(Stateful)     │Service       │                        │
-└───────────────┴──────┬───────┴────────┬───────────────┘
-                       │                 │
-                ┌──────┴───────┐ ┌───────┴───────┐
-                │Execution     │ │API Gateway    │
-                │Service       │ │               │
-                └──────┬───────┘ └───────────────┘
-                       │
-        ┌──────────────┴────────────────┐
-        │     Exchange Adapters         │
-        │ Binance │ OKX │ DEX           │
-        └───────────────────────────────┘
+```mermaid
+graph TB
+    %% External Systems
+    subgraph External["External Systems"]
+        Binance[Binance API]
+        OKX[OKX API]
+        Uniswap[Uniswap DEX]
+    end
+
+    %% Data Collection Layer
+    subgraph DataCollection["Data Collection Layer"]
+        ExchangeCollector[Exchange Collector<br/>CEX Market Data]
+        BlockchainCollector[Blockchain Collector<br/>On-chain & DEX Data]
+        AuxiliaryCollector[Auxiliary Collector<br/>Supplementary Data]
+    end
+
+    %% Message Bus
+    subgraph MessageBus["Kafka Message Bus"]
+        Topics[Topics:<br/>market.*, signals.*<br/>orders.*, risk.*]
+    end
+
+    %% Core Services
+    subgraph CoreServices["Core Services"]
+        Manager[Manager Service<br/>(Stateful)<br/>State Management]
+        Strategy[Strategy Service<br/>Trading Logic]
+        Risk[Risk Service<br/>Risk Control]
+    end
+
+    %% Infrastructure
+    Execution[Execution Service<br/>Order Management]
+    APIGateway[API Gateway<br/>Unified Entry Point]
+
+    %% Exchange Adapters
+    subgraph Adapters["Exchange Adapters"]
+        BinanceAdapter[Binance]
+        OKXAdapter[OKX]
+        DEXAdapter[DEX]
+    end
+
+    %% Connections
+    External --> DataCollection
+    DataCollection --> MessageBus
+    MessageBus --> CoreServices
+    CoreServices --> Execution
+    CoreServices --> APIGateway
+    Execution --> Adapters
+    Adapters --> External
+
+    %% Styling
+    classDef external fill:#e8f4fd,stroke:#1565c0
+    classDef dataCollection fill:#e8f5e8,stroke:#2e7d32
+    classDef coreService fill:#fff3e0,stroke:#f57c00
+    classDef infrastructure fill:#f3e5f5,stroke:#7b1fa2
+
+    class Binance,OKX,Uniswap external
+    class ExchangeCollector,BlockchainCollector,AuxiliaryCollector dataCollection
+    class Manager,Strategy,Risk coreService
+    class Execution,APIGateway infrastructure
 ```
 
 ## 📁 Project Structure
 
-```
-pixiu/
-├── services/
-│   ├── data-collection/        # Data collection services
-│   │   ├── exchange-collector/ # CEX market data (Python)
-│   │   ├── blockchain-collector/ # On-chain data (Go)
-│   │   └── auxiliary-collector/ # Supplementary data (Python)
-│   ├── adapters/              # Exchange adapters
-│   │   ├── binance-adapter/   # Binance integration
-│   │   ├── okx-adapter/       # OKX integration
-│   │   └── dex-adapter/       # DEX integration
-│   ├── core/                  # Core business services
-│   │   ├── manager-service/   # State management (Python)
-│   │   ├── strategy-service/  # Strategy engine (Python)
-│   │   ├── risk-service/      # Risk control (Python)
-│   │   └── execution-service/ # Order execution (Python/Rust)
-│   └── infrastructure/        # Infrastructure services
-│       ├── api-gateway/       # API Gateway (Go)
-│       └── config-service/    # Configuration management
-├── deployment/                # Deployment configurations
-│   ├── docker-compose/        # Docker Compose files
-│   ├── kubernetes/            # K8s manifests
-│   └── helm/                  # Helm charts
-├── scripts/                   # Utility scripts
-└── docs/                      # Documentation
-    ├── api/                   # API documentation
-    ├── architecture/          # Architecture docs
-    └── deployment/            # Deployment guides
+```mermaid
+graph TD
+    A[pixiu/] --> B[services/]
+    A --> C[deployment/]
+    A --> D[scripts/]
+    A --> E[docs/]
+    
+    B --> F[data-collection/]
+    B --> G[adapters/]
+    B --> H[core/]
+    B --> I[infrastructure/]
+    
+    F --> F1[exchange-collector/<br/>CEX market data - Python]
+    F --> F2[blockchain-collector/<br/>On-chain data - Go]
+    F --> F3[auxiliary-collector/<br/>Supplementary data - Python]
+    
+    G --> G1[binance-adapter/<br/>Binance integration]
+    G --> G2[okx-adapter/<br/>OKX integration]
+    G --> G3[dex-adapter/<br/>DEX integration]
+    
+    H --> H1[manager-service/<br/>State management - Python]
+    H --> H2[strategy-service/<br/>Strategy engine - Python]
+    H --> H3[risk-service/<br/>Risk control - Python]
+    H --> H4[execution-service/<br/>Order execution - Python/Rust]
+    
+    I --> I1[api-gateway/<br/>API Gateway - Go]
+    I --> I2[config-service/<br/>Configuration management]
+    
+    C --> C1[docker-compose/<br/>Docker Compose files]
+    C --> C2[kubernetes/<br/>K8s manifests]
+    C --> C3[helm/<br/>Helm charts]
+    
+    E --> E1[api/<br/>API documentation]
+    E --> E2[architecture/<br/>Architecture docs]
+    E --> E3[deployment/<br/>Deployment guides]
+    
+    %% Styling
+    classDef folder fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
+    classDef service fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px
+    classDef config fill:#fff3e0,stroke:#f57c00,stroke-width:2px
+    
+    class A,B,C,D,E,F,G,H,I folder
+    class F1,F2,F3,G1,G2,G3,H1,H2,H3,H4,I1,I2 service
+    class C1,C2,C3,E1,E2,E3 config
 ```
 
 ## 🚀 Key Features
