@@ -1,0 +1,59 @@
+# Exchange Collector Development Configuration
+
+server:
+  port: 8080
+  host: "0.0.0.0"
+
+exchanges:
+  binance:
+    wsEndpoint: "wss://stream.binance.com:9443"
+    symbols:
+      - "BTC/USDT"
+      - "ETH/USDT" 
+      - "BNB/USDT"
+    dataTypes:
+      - "trade"
+      - "kline_1m"
+      - "kline_5m"
+    connections:
+      max: 3
+      streamsPerConnection: 1000
+
+kafka:
+  brokers:
+    - "localhost:9092"
+  clientId: "exchange-collector-dev"
+  producer:
+    batchSize: 50
+    lingerMs: 100
+    compression: "gzip"
+    maxInFlightRequests: 5
+    retries: 3
+  topics:
+    prefix: "market"
+
+monitoring:
+  prometheus:
+    enabled: true
+    port: 9090
+    path: "/metrics"
+  healthCheck:
+    interval: 30000
+    timeout: 5000
+
+logging:
+  level: "debug"
+  format: "simple"
+  file:
+    enabled: true
+    path: "./logs/exchange-collector.log"
+    maxSize: "100m"
+    maxFiles: 3
+
+connection:
+  maxConnectionsPerExchange: 5
+  maxStreamsPerConnection: 1000
+  reconnectDelay: 1000
+  maxReconnectDelay: 30000
+  heartbeatInterval: 30000
+  pingTimeout: 10000
