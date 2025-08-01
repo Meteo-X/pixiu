@@ -1,7 +1,7 @@
 # Binance 数据接入项目执行计划
 
 ## 项目目标
-基于解耦架构设计，实现 Binance 交易所的实时市场数据接入，包括成交数据(trade)、K线数据(kline)和价格数据(ticker)的采集、标准化和发送到 Kafka。
+基于解耦架构设计，实现 Binance 交易所的实时市场数据接入，包括成交数据(trade)、K线数据(kline)和价格数据(ticker)的采集、标准化和发送到 Google Cloud Pub/Sub。
 
 ## 总体架构
 ```
@@ -94,10 +94,10 @@ services/
 - 支持插件化适配器架构
 - 通用的配置和数据处理系统
 
-## 阶段4：Kafka 集成和数据发送（2天）
+## 阶段4：Google Cloud Pub/Sub 集成和数据发送（2天）
 
-### 4.1 Kafka 生产者实现
-- [ ] 实现高性能 Kafka 生产者
+### 4.1 Google Cloud Pub/Sub 发布者实现
+- [ ] 实现高性能 Google Cloud Pub/Sub 发布者
 - [ ] 实现批量发送和压缩
 - [ ] 实现发送失败重试机制
 - [ ] 实现背压控制
@@ -115,13 +115,13 @@ services/
 - [ ] 优化序列化性能
 
 ### 4.4 Google Cloud Pub/Sub 集成（可选）
-- [ ] 评估 Google Cloud Pub/Sub 作为 Kafka 替代方案
+- [ ] 实现可配置的消息后端支持（主要使用 Pub/Sub）
 - [ ] 实现 Pub/Sub 生产者适配器
 - [ ] 配置 Topic 和订阅
 - [ ] 实现消息批处理和确认机制
 
 **交付物：**
-- 完整的 Kafka 集成
+- 完整的 Google Cloud Pub/Sub 集成
 - 支持多种数据类型的 Topic 路由
 - 高性能的数据发送机制
 
@@ -164,7 +164,7 @@ services/
 
 ### 6.2 集成测试
 - [ ] 端到端数据流测试
-- [ ] Kafka 集成测试
+- [ ] Google Cloud Pub/Sub 集成测试
 - [ ] 重连机制测试
 - [ ] 并发压力测试
 
@@ -214,7 +214,7 @@ services/
 | M1: 架构搭建完成 | 第3天 | 接口定义完成，项目结构就绪 |
 | M2: Binance适配器完成 | 第7天 | 能稳定接收Binance数据 |
 | M3: Collector重构完成 | 第10天 | 支持插件化适配器架构 |
-| M4: Kafka集成完成 | 第12天 | 数据能发送到Kafka Topic |
+| M4: Pub/Sub集成完成 | 第12天 | 数据能发送到Pub/Sub Topic |
 | M5: 监控API完成 | 第14天 | 具备生产监控能力 |
 | M6: 测试优化完成 | 第17天 | 通过所有测试，性能达标 |
 | M7: 生产就绪 | 第18天 | 可部署到生产环境 |
@@ -338,7 +338,7 @@ services/
         │   ├── interfaces/         # 适配器接口
         │   ├── registry/           # 适配器注册
         │   ├── pipeline/           # 数据管道
-        │   ├── kafka/              # Kafka 集成
+        │   ├── pubsub/             # Google Cloud Pub/Sub 集成
         │   ├── api/                # REST API
         │   └── monitoring/         # 监控指标
         ├── config/

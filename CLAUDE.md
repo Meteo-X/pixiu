@@ -10,7 +10,7 @@ Pixiu is a cryptocurrency quantitative trading system built with microservice ar
 
 The system uses a layered microservice architecture:
 - **Data Collection Layer**: Exchange/blockchain/auxiliary data collectors
-- **Message Bus**: Google Cloud Pub/Sub for event streaming (with Kafka as fallback option)
+- **Message Bus**: Google Cloud Pub/Sub for event streaming (with configurable alternatives)
 - **Core Services**: Manager (stateful), Strategy, Risk, and Execution services  
 - **Exchange Adapters**: Unified trading interfaces for different exchanges
 - **Storage Layer**: PostgreSQL, TimescaleDB, Redis
@@ -21,7 +21,7 @@ The Manager service is the only stateful service and handles centralized state m
 
 ### Docker Development Environment
 ```bash
-# Start minimal development environment (databases + Kafka)
+# Start minimal development environment (databases + Pub/Sub emulator)
 cd deployment/docker-compose
 docker-compose -f docker-compose.dev.yml up -d
 
@@ -100,7 +100,7 @@ air
 - **TypeScript Services**: Express.js, ws (WebSocket), @google-cloud/pubsub, winston (logging)
 - **Go Services**: Gin (HTTP), gorilla/websocket, Google Cloud Pub/Sub Go client
 - **Databases**: PostgreSQL (business data), TimescaleDB (time series), Redis (cache/state)
-- **Message Bus**: Google Cloud Pub/Sub (with Kafka as fallback)
+- **Message Bus**: Google Cloud Pub/Sub (with configurable alternatives)
 - **Monitoring**: Google Cloud Monitoring, Prometheus, Grafana
 
 ## Database Management

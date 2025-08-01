@@ -19,18 +19,22 @@ exchanges:
       max: 3
       streamsPerConnection: 1000
 
-kafka:
-  brokers:
-    - "localhost:9092"
-  clientId: "exchange-collector-dev"
-  producer:
-    batchSize: 50
-    lingerMs: 100
-    compression: "gzip"
-    maxInFlightRequests: 5
-    retries: 3
-  topics:
-    prefix: "market"
+googleCloud:
+  projectId: "pixiu-trading-dev"
+  pubsub:
+    enabled: true
+    emulatorHost: "localhost:8085"
+    topicPrefix: "market-data"
+    publishSettings:
+      enableMessageOrdering: false
+      batchSettings:
+        maxMessages: 100
+        maxBytes: 1048576
+        maxLatency: 100
+      retrySettings:
+        maxRetries: 3
+        initialRetryDelay: 100
+        maxRetryDelay: 60000
 
 monitoring:
   prometheus:

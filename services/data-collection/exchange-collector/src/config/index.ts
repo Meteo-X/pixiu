@@ -27,18 +27,25 @@ const configSchema = Joi.object({
     })
   ).min(1).required(),
   
-  kafka: Joi.object({
-    brokers: Joi.array().items(Joi.string()).min(1).required(),
-    clientId: Joi.string().default('exchange-collector'),
-    producer: Joi.object({
-      batchSize: Joi.number().min(1).default(100),
-      lingerMs: Joi.number().min(0).default(100),
-      compression: Joi.string().valid('gzip', 'snappy', 'lz4', 'none').default('gzip'),
-      maxInFlightRequests: Joi.number().min(1).default(5),
-      retries: Joi.number().min(0).default(3)
-    }).default(),
-    topics: Joi.object({
-      prefix: Joi.string().default('market')
+  googleCloud: Joi.object({
+    projectId: Joi.string().required(),
+    pubsub: Joi.object({
+      enabled: Joi.boolean().default(true),
+      emulatorHost: Joi.string(),
+      topicPrefix: Joi.string().default('market-data'),
+      publishSettings: Joi.object({
+        enableMessageOrdering: Joi.boolean().default(false),
+        batchSettings: Joi.object({
+          maxMessages: Joi.number().min(1).default(100),
+          maxBytes: Joi.number().min(1).default(1048576),
+          maxLatency: Joi.number().min(1).default(100)
+        }).default(),
+        retrySettings: Joi.object({
+          maxRetries: Joi.number().min(0).default(3),
+          initialRetryDelay: Joi.number().min(1).default(100),
+          maxRetryDelay: Joi.number().min(1000).default(60000)
+        }).default()
+      }).default()
     }).default()
   }).required(),
   
@@ -142,10 +149,15 @@ export class ConfigManager {
       config.server.host = process.env.HOST;
     }
     
-    // Kafka 配置
-    if (process.env.KAFKA_BROKERS) {
-      config.kafka = config.kafka || {};
-      config.kafka.brokers = process.env.KAFKA_BROKERS.split(',');
+    // Google Cloud 配置
+    if (process.env.GOOGLE_CLOUD_PROJECT) {
+      config.googleCloud = config.googleCloud || { pubsub: {} };
+      config.googleCloud.projectId = process.env.GOOGLE_CLOUD_PROJECT;
+    }
+    
+    if (process.env.PUBSUB_EMULATOR_HOST) {
+      config.googleCloud = config.googleCloud || { pubsub: {} };
+      config.googleCloud.pubsub.emulatorHost = process.env.PUBSUB_EMULATOR_HOST;
     }
     
     // 日志配置
@@ -189,18 +201,25 @@ export const defaultConfig: Partial<ServiceConfig> = {
     }
   },
   
-  kafka: {
-    brokers: ['localhost:9092'],
-    clientId: 'exchange-collector',
-    producer: {
-      batchSize: 100,
-      lingerMs: 100,
-      compression: 'gzip',
-      maxInFlightRequests: 5,
-      retries: 3
-    },
-    topics: {
-      prefix: 'market'
+  googleCloud: {
+    projectId: 'pixiu-trading-dev',
+    pubsub: {
+      enabled: true,
+      emulatorHost: 'localhost:8085',
+      topicPrefix: 'market-data',
+      publishSettings: {
+        enableMessageOrdering: false,
+        batchSettings: {
+          maxMessages: 100,
+          maxBytes: 1048576,
+          maxLatency: 100
+        },
+        retrySettings: {
+          maxRetries: 3,
+          initialRetryDelay: 100,
+          maxRetryDelay: 60000
+        }
+      }
     }
   },
   

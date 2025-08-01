@@ -4,7 +4,7 @@ go 1.21
 
 require (
     github.com/ethereum/go-ethereum v1.13.5
-    github.com/segmentio/kafka-go v0.4.47
+    cloud.google.com/go/pubsub v1.33.0
     github.com/prometheus/client_golang v1.17.0
     github.com/gorilla/mux v1.8.1
     github.com/sirupsen/logrus v1.9.3

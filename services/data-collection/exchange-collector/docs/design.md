@@ -2,7 +2,7 @@
 
 ## 概述
 
-Exchange Collector 是一个高性能的实时市场数据采集服务，负责从加密货币交易所（初期支持 Binance）采集实时交易数据并标准化后发送到 Kafka。
+Exchange Collector 是一个高性能的实时市场数据采集服务，负责从加密货币交易所（初期支持 Binance）采集实时交易数据并标准化后发送到 Google Cloud Pub/Sub。
 
 ## 技术选型
 
@@ -10,7 +10,7 @@ Exchange Collector 是一个高性能的实时市场数据采集服务，负责�
 
 - WebSocket 性能优于 Python asyncio（2-4倍）
 - 更低的资源消耗，适合处理大量并发连接
-- 成熟的生态系统（ws、kafkajs 等库）
+- 成熟的生态系统（ws、@google-cloud/pubsub 等库）
 
 ## 架构设计
 
@@ -39,7 +39,7 @@ Exchange Collector 是一个高性能的实时市场数据采集服务，负责�
 │  └────────────────────┬─────────────────────┘              │
 │                       │                                     │
 │  ┌────────────────────▼─────────────────────┐              │
-│  │         Kafka Producer                    │              │
+│  │         Pub/Sub Publisher                │              │
 │  │  ┌──────────┐  ┌──────────┐  ┌────────┐ │              │
 │  │  │ Batch    │  │ Router   │  │ Retry  │ │              │
 │  │  │ Manager  │  │          │  │ Logic  │ │              │
@@ -122,26 +122,30 @@ class DataPipeline {
 }
 ```
 
-### 3. Kafka Producer（Kafka 生产者）
+### 3. Google Cloud Pub/Sub Publisher（Pub/Sub 发布者）
 
-负责将标准化的数据发送到 Kafka，实现批量发送和错误重试。
+负责将标准化的数据发送到 Google Cloud Pub/Sub，实现批量发送和错误重试。
 
 ```typescript
-interface KafkaConfig {
-  brokers: string[];
-  clientId: string;
-  batchSize: number;         // 默认 100
-  lingerMs: number;          // 默认 100ms
-  compressionType: 'gzip' | 'snappy' | 'lz4';
+interface PubSubConfig {
+  projectId: string;
+  topicPrefix: string;
+  publishSettings: {
+    batchSettings: {
+      maxMessages: number;     // 默认 100
+      maxLatency: number;      // 默认 100ms
+      maxBytes: number;        // 默认 1MB
+    };
+  };
 }
 
-class KafkaProducerService {
-  async send(data: MarketData): Promise<void>;
-  async sendBatch(data: MarketData[]): Promise<void>;
+class PubSubPublisherService {
+  async publish(data: MarketData): Promise<void>;
+  async publishBatch(data: MarketData[]): Promise<void>;
   
   // Topic 路由规则
   private getTopicName(data: MarketData): string {
-    // market.{type}.{exchange}.{symbol}
+    // market-{type}-{exchange}-{symbol}
     return `market.${data.type}.${data.exchange}.${data.symbol.toLowerCase()}`;
   }
 }
@@ -191,7 +195,7 @@ interface Metrics {
 1. 项目初始化和基础架构
 2. Binance WebSocket 连接器实现
 3. 数据解析和标准化
-4. 基础 Kafka 生产者
+4. 基础 Google Cloud Pub/Sub 发布者
 5. 简单的健康检查 API
 
 ### 第二阶段：稳定性增强（3-5天）
@@ -238,16 +242,20 @@ exchanges:
       max: 5
       streamsPerConnection: 1000
 
-# Kafka 配置（可选，如果使用 Kafka）
-kafka:
-  brokers:
-    - kafka:9092
+# 替代消息后端配置（可选）
+# 仅在特殊情况下使用，默认使用 Google Cloud Pub/Sub
+alternative_messaging:
+  type: "alternative"  # 可选: alternative
+  enabled: false
+  config:
+    brokers:
+      - message-broker:9092
   producer:
     batchSize: 100
     lingerMs: 100
     compression: gzip
 
-# Google Cloud Pub/Sub 配置（可选，作为 Kafka 替代）
+# Google Cloud Pub/Sub 配置（主要消息总线）
 googleCloud:
   projectId: pixiu-trading
   pubsub:
@@ -293,7 +301,7 @@ logging:
 基于实验数据，设定以下性能目标：
 
 - 支持 100+ 个交易对的实时数据采集
-- 平均延迟 < 100ms（从交易所到 Kafka）
+- 平均延迟 < 100ms（从交易所到 Pub/Sub）
 - 消息吞吐量 > 10,000 msg/s
 - CPU 使用率 < 50%（4核）
 - 内存使用 < 1GB
@@ -304,7 +312,8 @@ logging:
 1. **连接错误**：指数退避重连，最大延迟 30 秒
 2. **数据解析错误**：记录错误日志到 Cloud Logging，跳过错误数据
 3. **消息发送错误**：
-   - Kafka: 本地缓冲 + 重试，超过阈值告警
+   - Google Cloud Pub/Sub: 利用内置重试机制和死信队列
+   - 替代消息后端（如启用）: 本地缓冲 + 重试，超过阈值告警
    - Pub/Sub: 利用内置重试机制和死信队列
 4. **内存压力**：触发背压，暂停数据接收，配置 GKE 资源限制和自动扩缩
 5. **Google Cloud 服务错误**：
@@ -350,7 +359,7 @@ logging:
 1. **多交易所支持**：通过策略模式实现不同交易所的适配器
 2. **水平扩展**：通过交易对分片实现多实例部署，利用 GKE 自动扩缩
 3. **数据类型扩展**：插件化的数据解析器
-4. **存储扩展**：支持 Kafka 和 Google Cloud Pub/Sub，可根据需求切换
+4. **消息系统扩展**：主要使用 Google Cloud Pub/Sub，支持可配置的替代消息后端
 5. **区域扩展**：利用 Google Cloud 多区域部署降低延迟
 
 ## Google Cloud 集成架构

@@ -31,7 +31,7 @@ graph TB
     classDef external fill:#e8e8e8,stroke:#999,stroke-width:2px
     classDef dataCollection fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
     classDef adapter fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
-    classDef kafka fill:#fff3e0,stroke:#f57c00,stroke-width:3px
+    classDef pubsub fill:#fff3e0,stroke:#f57c00,stroke-width:3px
     classDef manager fill:#ffebee,stroke:#c62828,stroke-width:2px
     classDef strategy fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px
     classDef risk fill:#f3e5f5,stroke:#6a1b9a,stroke-width:2px
@@ -161,7 +161,7 @@ graph TB
     class Binance,OKX,Ethereum,Uniswap,ThirdParty external
     class ExchangeCollector,BlockchainCollector,AuxCollector dataCollection
     class BinanceAdapter,OKXAdapter,DEXAdapter adapter
-    class MarketTopic,SignalTopic,OrderTopic,SystemTopic,RiskTopic kafka
+    class MarketTopic,SignalTopic,OrderTopic,SystemTopic,RiskTopic pubsub
     class Manager manager
     class Strategy strategy
     class Risk risk
@@ -803,7 +803,7 @@ class DataAccessLayer:
 | Python | 3.10+ | 主要开发语言 | - 丰富的金融库<br>- asyncio原生支持<br>- 易于维护 |
 | FastAPI | 0.100+ | Web框架 | - 高性能<br>- 自动API文档<br>- 类型安全 |
 | Google Cloud Pub/Sub | Latest | 消息队列 | - 云原生托管<br>- 自动扩缩<br>- 全球分布<br>- 内置监控 |
-| Kafka | 3.5+ | 消息队列(可选) | - 高吞吐量<br>- 持久化<br>- 分区机制 |
+| 替代消息系统 | - | 可选支持 | - 可配置多种后端<br>- 灵活部署选项 |
 | PostgreSQL | 15+ | 关系数据库 | - 成熟稳定<br>- JSON支持<br>- 扩展性好 |
 | TimescaleDB | 2.11+ | 时序数据库 | - PG扩展<br>- 自动分区<br>- 连续聚合 |
 | Redis | 7.0+ | 缓存/状态 | - 高性能<br>- 数据结构丰富 |

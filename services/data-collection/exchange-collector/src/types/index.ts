@@ -165,7 +165,7 @@ export interface ServiceConfig {
   exchanges: {
     [key: string]: ExchangeConfig;
   };
-  kafka: KafkaConfig;
+  googleCloud: GoogleCloudConfig;
   monitoring: MonitoringConfig;
   logging: LoggingConfig;
   connection: ConnectionConfig;
@@ -182,18 +182,25 @@ export interface ExchangeConfig {
   };
 }
 
-export interface KafkaConfig {
-  brokers: string[];
-  clientId: string;
-  producer: {
-    batchSize: number;
-    lingerMs: number;
-    compression: 'gzip' | 'snappy' | 'lz4' | 'none';
-    maxInFlightRequests: number;
-    retries: number;
-  };
-  topics: {
-    prefix: string;
+export interface GoogleCloudConfig {
+  projectId: string;
+  pubsub: {
+    enabled: boolean;
+    emulatorHost?: string;
+    topicPrefix: string;
+    publishSettings: {
+      enableMessageOrdering: boolean;
+      batchSettings: {
+        maxMessages: number;
+        maxBytes: number;
+        maxLatency: number;
+      };
+      retrySettings: {
+        maxRetries: number;
+        initialRetryDelay: number;
+        maxRetryDelay: number;
+      };
+    };
   };
 }
 
@@ -272,9 +279,9 @@ export class DataParsingError extends ExchangeCollectorError {
   }
 }
 
-export class KafkaError extends ExchangeCollectorError {
+export class PubSubError extends ExchangeCollectorError {
   constructor(message: string, cause?: Error) {
-    super(message, 'KAFKA_ERROR', cause);
-    this.name = 'KafkaError';
+    super(message, 'PUBSUB_ERROR', cause);
+    this.name = 'PubSubError';
   }
 }

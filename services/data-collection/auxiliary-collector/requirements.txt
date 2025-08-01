@@ -1,6 +1,6 @@
 httpx==0.25.2
 apscheduler==3.10.4
-aiokafka==0.10.0
+google-cloud-pubsub==2.18.4
 beautifulsoup4==4.12.2
 lxml==4.9.3
 pydantic==2.5.0

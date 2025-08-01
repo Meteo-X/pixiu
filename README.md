@@ -128,7 +128,7 @@ graph TD
 ## 🛠️ Technology Stack
 
 ### Core Technologies
-- **Message Bus**: Google Cloud Pub/Sub (with Kafka as fallback)
+- **Message Bus**: Google Cloud Pub/Sub (with configurable alternatives)
 - **Databases**: PostgreSQL, TimescaleDB, Redis
 - **Languages**: Python, Go, Rust (flexible per service)
 - **Container**: Docker, Google Kubernetes Engine (GKE)

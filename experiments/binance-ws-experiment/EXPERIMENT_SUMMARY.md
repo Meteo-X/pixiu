@@ -42,7 +42,7 @@ services/data-collection/exchange-collector/
 │   ├── config/          # 配置管理
 │   ├── connectors/      # 交易所连接器
 │   ├── pipeline/        # 数据处理管道
-│   ├── kafka/          # Kafka 生产者
+│   ├── pubsub/         # Google Cloud Pub/Sub 发布者
 │   ├── metrics/        # 监控指标
 │   ├── api/            # API 服务
 │   ├── types/          # 类型定义
@@ -55,20 +55,20 @@ services/data-collection/exchange-collector/
 ### 核心模块
 1. **BinanceConnector**：WebSocket 连接管理，支持自动重连
 2. **DataPipeline**：数据解析和标准化处理
-3. **KafkaProducer**：批量发送到 Kafka
+3. **PubSubPublisher**：批量发送到 Google Cloud Pub/Sub
 4. **ConfigManager**：配置管理和验证
 5. **MetricsService**：监控指标收集
 
 ### 数据流设计
 ```
-Binance WebSocket → DataParser → DataNormalizer → KafkaProducer → Kafka Topics
+Binance WebSocket → DataParser → DataNormalizer → PubSubPublisher → Pub/Sub Topics
 ```
 
 ### Topic 命名规则
 ```
-market.{type}.{exchange}.{symbol}
-例如：market.trade.binance.btcusdt
-      market.kline_1m.binance.ethusdt
+market-{type}-{exchange}-{symbol}
+例如：market-trade-binance-btcusdt
+      market-kline-1m-binance-ethusdt
 ```
 
 ## 实验文件说明
@@ -99,7 +99,7 @@ market.{type}.{exchange}.{symbol}
 
 ### Phase 2: 功能完善
 - [ ] 数据解析器实现
-- [ ] Kafka 生产者集成
+- [ ] Google Cloud Pub/Sub 发布者集成
 - [ ] 监控指标系统
 - [ ] API 服务接口
 
