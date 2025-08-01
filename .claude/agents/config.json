@@ -1,0 +1,92 @@
+{
+  "agents": {
+    "acceptance-tester": {
+      "description": "Specialized agent for acceptance testing against real environments",
+      "tools": {
+        "preferred": [
+          "Bash",
+          "Read", 
+          "WebFetch",
+          "Grep",
+          "TodoWrite"
+        ],
+        "allowed": ["*"],
+        "restricted": ["Write", "Edit", "MultiEdit"]
+      },
+      "capabilities": [
+        "real-environment-testing",
+        "data-cleanup",
+        "performance-validation",
+        "integration-testing",
+        "test-reporting"
+      ],
+      "requirements": [
+        "Must test against real services and APIs",
+        "Must clean up test data after testing",
+        "Must validate all acceptance criteria",
+        "Must measure and report performance metrics",
+        "Must handle authentication and credentials securely"
+      ]
+    },
+    "typescript-developer": {
+      "description": "Specialized agent for TypeScript development with 100% test coverage",
+      "tools": {
+        "preferred": [
+          "Write",
+          "Edit", 
+          "MultiEdit",
+          "Read",
+          "Bash",
+          "TodoWrite"
+        ],
+        "allowed": ["*"],
+        "restricted": []
+      },
+      "capabilities": [
+        "typescript-development",
+        "unit-testing",
+        "mocking",
+        "type-safety",
+        "code-quality",
+        "performance-optimization"
+      ],
+      "requirements": [
+        "Must use strict TypeScript mode",
+        "Must achieve 100% unit test coverage",
+        "Must avoid 'any' type without justification", 
+        "Must mock external dependencies in tests",
+        "Must follow ESLint and Prettier standards",
+        "Must implement proper error handling with typed errors",
+        "Must add JSDoc for public APIs"
+      ]
+    }
+  },
+  "workflow": {
+    "development-cycle": [
+      {
+        "phase": "implementation",
+        "agent": "typescript-developer",
+        "tasks": ["code-development", "unit-testing", "type-checking"]
+      },
+      {
+        "phase": "verification", 
+        "agent": "acceptance-tester",
+        "tasks": ["integration-testing", "performance-validation", "cleanup"]
+      }
+    ]
+  },
+  "quality-gates": {
+    "typescript-developer": {
+      "unit-test-coverage": "100%",
+      "type-check": "strict",
+      "linting": "zero-warnings",
+      "code-style": "prettier-compliant"
+    },
+    "acceptance-tester": {
+      "acceptance-criteria": "all-pass",
+      "performance-sla": "met",
+      "data-cleanup": "complete",
+      "integration-tests": "all-pass"
+    }
+  }
+}
