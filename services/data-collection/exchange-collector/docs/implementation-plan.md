@@ -14,11 +14,11 @@ services/
 
 ## 阶段1：基础架构搭建（2-3天）
 
-### 1.1 创建项目结构
-- [ ] 创建 `services/adapters/binance-adapter/` 目录结构
-- [ ] 设置 TypeScript 项目配置（package.json, tsconfig.json）
-- [ ] 创建基础的 README 和文档结构
-- [ ] 配置 Google Cloud SDK 和认证
+### 1.1 创建项目结构 ✅ **已完成**
+- [x] 创建 `services/adapters/binance-adapter/` 目录结构
+- [x] 设置 TypeScript 项目配置（package.json, tsconfig.json）
+- [x] 创建基础的 README 和文档结构
+- [x] 配置 Google Cloud SDK 和认证
 
 ### 1.2 定义核心接口
 - [ ] 定义 `ExchangeAdapter` 统一接口
