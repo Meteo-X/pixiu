@@ -545,7 +545,7 @@ export type KlineInterval =
  */
 export class AdapterError extends Error {
   public code: string;
-  public cause?: Error;
+  public override cause?: Error;
   public context?: Record<string, any>;
 
   constructor(

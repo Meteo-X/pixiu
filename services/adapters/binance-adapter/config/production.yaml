@@ -1,0 +1,102 @@
+# Binance 适配器生产环境配置
+# 此文件用于生产环境部署
+
+# WebSocket 端点配置
+wsEndpoint: 'wss://stream.binance.com:9443'
+restEndpoint: 'https://api.binance.com'
+
+# 环境设置
+environment: production
+
+# 连接配置 (生产环境使用更高的连接数)
+connection:
+  maxConnections: 10
+  maxStreamsPerConnection: 1000
+  heartbeatInterval: 20000
+  pingTimeout: 25000
+  connectionTimeout: 30000
+
+# 重试配置 (生产环境使用更多重试)
+retry:
+  maxRetries: 50
+  initialDelay: 1000
+  maxDelay: 30000
+  backoffMultiplier: 2.0
+  jitter: true
+
+# 订阅配置
+subscriptions:
+  # 生产环境订阅更多符号
+  defaultSymbols:
+    - BTCUSDT
+    - ETHUSDT
+    - BNBUSDT
+    - ADAUSDT
+    - SOLUSDT
+    - XRPUSDT
+    - DOTUSDT
+    - DOGEUSDT
+    - AVAXUSDT
+    - LTCUSDT
+  
+  supportedDataTypes:
+    - trade
+    - kline_1m
+    - kline_5m
+    - kline_15m
+    - kline_1h
+    - ticker
+  
+  # 批量订阅设置
+  batchSubscription:
+    enabled: true
+    batchSize: 200
+    batchInterval: 500
+  
+  # 订阅管理
+  management:
+    autoResubscribe: true
+    subscriptionTimeout: 15000
+    maxConcurrentSubscriptions: 5000
+
+# 凭据配置 (生产环境使用 Secret Manager)
+credentials:
+  useSecretManager: true
+  secretName: binance-api-credentials
+
+# 日志配置 (生产环境使用结构化日志)
+logging:
+  level: info
+  format: json
+  structured: true
+
+# 监控配置
+monitoring:
+  prometheus:
+    enabled: true
+    port: 9090
+    path: /metrics
+  healthCheck:
+    interval: 60000
+    timeout: 10000
+
+# Google Cloud 配置 (生产环境)
+googleCloud:
+  # 项目 ID 从环境变量获取
+  # projectId: ${GOOGLE_CLOUD_PROJECT}
+  pubsub:
+    enabled: true
+    topicPrefix: market
+    publishSettings:
+      enableMessageOrdering: true
+      batchSettings:
+        maxMessages: 1000
+        maxBytes: 10485760  # 10MB
+        maxLatency: 50
+      retrySettings:
+        maxRetries: 10
+        initialRetryDelay: 100
+        maxRetryDelay: 5000
+  monitoring:
+    enabled: true
+    metricPrefix: pixiu/binance/adapter

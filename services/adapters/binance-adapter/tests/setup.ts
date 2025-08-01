@@ -15,20 +15,10 @@ global.console = {
 };
 
 // Set test environment variables
-process.env.NODE_ENV = 'test';
-process.env.LOG_LEVEL = 'error';
-process.env.GOOGLE_CLOUD_PROJECT = 'test-project';
-process.env.PUBSUB_EMULATOR_HOST = 'localhost:8085';
-
-// Global test utilities
-declare global {
-  namespace jest {
-    interface Matchers<R> {
-      toBeValidTimestamp(): R;
-      toBeValidMarketData(): R;
-    }
-  }
-}
+process.env['NODE_ENV'] = 'testing';
+process.env['LOG_LEVEL'] = 'error';
+process.env['GOOGLE_CLOUD_PROJECT'] = 'test-project';
+process.env['PUBSUB_EMULATOR_HOST'] = 'localhost:8085';
 
 // Custom Jest matchers
 expect.extend({
@@ -58,11 +48,11 @@ expect.extend({
 
     const data = received as Record<string, unknown>;
     const hasRequiredFields = 
-      typeof data.exchange === 'string' &&
-      typeof data.symbol === 'string' &&
-      typeof data.timestamp === 'number' &&
-      typeof data.type === 'string' &&
-      data.data !== undefined;
+      typeof data['exchange'] === 'string' &&
+      typeof data['symbol'] === 'string' &&
+      typeof data['timestamp'] === 'number' &&
+      typeof data['type'] === 'string' &&
+      data['data'] !== undefined;
 
     if (hasRequiredFields) {
       return {
@@ -77,3 +67,6 @@ expect.extend({
     }
   },
 });
+
+// Export empty object to make this a module
+export {};

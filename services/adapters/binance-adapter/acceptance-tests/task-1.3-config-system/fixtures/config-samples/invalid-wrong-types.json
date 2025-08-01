@@ -1,0 +1,38 @@
+{
+  "wsEndpoint": "invalid-url",
+  "restEndpoint": "not-a-url",
+  "environment": "invalid-env",
+  "connection": {
+    "maxConnections": "not-a-number",
+    "maxStreamsPerConnection": -1,
+    "heartbeatInterval": 0,
+    "pingTimeout": "string",
+    "connectionTimeout": null
+  },
+  "retry": {
+    "maxRetries": -5,
+    "initialDelay": 0,
+    "maxDelay": "invalid",
+    "backoffMultiplier": 0.5,
+    "jitter": "not-boolean"
+  },
+  "subscriptions": {
+    "defaultSymbols": "not-an-array",
+    "supportedDataTypes": [],
+    "batchSubscription": {
+      "enabled": "not-boolean",
+      "batchSize": 0,
+      "batchInterval": -100
+    },
+    "management": {
+      "autoResubscribe": "yes",
+      "subscriptionTimeout": 0,
+      "maxConcurrentSubscriptions": "unlimited"
+    }
+  },
+  "logging": {
+    "level": "invalid-level",
+    "format": "invalid-format",
+    "structured": "not-boolean"
+  }
+}

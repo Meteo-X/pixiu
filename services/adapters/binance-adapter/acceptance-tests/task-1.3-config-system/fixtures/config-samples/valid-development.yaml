@@ -1,0 +1,72 @@
+# 有效的开发环境配置样例
+wsEndpoint: 'wss://stream.binance.com:9443'
+restEndpoint: 'https://api.binance.com'
+environment: development
+
+connection:
+  maxConnections: 3
+  maxStreamsPerConnection: 100
+  heartbeatInterval: 20000
+  pingTimeout: 25000
+  connectionTimeout: 30000
+
+retry:
+  maxRetries: 10
+  initialDelay: 1000
+  maxDelay: 15000
+  backoffMultiplier: 2.0
+  jitter: true
+
+subscriptions:
+  defaultSymbols:
+    - BTCUSDT
+    - ETHUSDT
+    - ADAUSDT
+  supportedDataTypes:
+    - trade
+    - kline_1m
+    - kline_5m
+    - ticker
+    - depth
+  batchSubscription:
+    enabled: true
+    batchSize: 50
+    batchInterval: 1000
+  management:
+    autoResubscribe: true
+    subscriptionTimeout: 15000
+    maxConcurrentSubscriptions: 500
+
+logging:
+  level: debug
+  format: text
+  structured: false
+
+monitoring:
+  prometheus:
+    enabled: true
+    port: 9091
+    path: /metrics
+  healthCheck:
+    interval: 30000
+    timeout: 5000
+
+googleCloud:
+  projectId: pixiu-trading-dev
+  pubsub:
+    enabled: true
+    emulatorHost: localhost:8085
+    topicPrefix: dev-market
+    publishSettings:
+      enableMessageOrdering: false
+      batchSettings:
+        maxMessages: 100
+        maxBytes: 1048576
+        maxLatency: 100
+      retrySettings:
+        maxRetries: 3
+        initialRetryDelay: 100
+        maxRetryDelay: 1000
+  monitoring:
+    enabled: false
+    metricPrefix: dev/binance/adapter
