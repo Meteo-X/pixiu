@@ -25,7 +25,7 @@ This service monitors blockchain networks and decentralized exchanges (DEX) to c
 - **Language**: Go 1.21+ (for performance)
 - **Key Libraries**:
   - `go-ethereum`: Ethereum client
-  - `kafka-go`: Kafka producer
+  - `cloud.google.com/go/pubsub`: Google Cloud Pub/Sub producer
   - `prometheus`: Metrics
 
 ## API Endpoints
@@ -39,7 +39,8 @@ This service monitors blockchain networks and decentralized exchanges (DEX) to c
 ## Configuration
 
 Environment variables:
-- `KAFKA_BROKER` - Kafka broker address
+- `GOOGLE_CLOUD_PROJECT` - Google Cloud project ID
+- `PUBSUB_EMULATOR_HOST` - Pub/Sub emulator endpoint (for development)
 - `CHAIN_RPCS` - JSON config of chain RPC endpoints
 - `CONTRACTS` - Contracts to monitor
 - `BLOCK_CONFIRMATIONS` - Blocks to wait before processing
@@ -47,7 +48,7 @@ Environment variables:
 
 ## Message Format
 
-Published to Kafka topic: `market.{chain}.{protocol}`
+Published to Google Cloud Pub/Sub topic: `market-{chain}-{protocol}`
 
 ```json
 {

@@ -2,7 +2,11 @@
     "name": "Pixiu Dev Container",
     "image": "mcr.microsoft.com/devcontainers/universal:linux",
     "features": {
-        "./features/claude": {}
+        "./features/claude": {},
+        "./features/gcloud-cli": {},
+        "ghcr.io/devcontainers-extra/features/apt-get-packages:1": {
+            "packages": "git-flow"
+        }
     },
     "customizations": {
         "vscode": {

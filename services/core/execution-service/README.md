@@ -29,7 +29,7 @@ The Execution Service is a stateless, high-performance service responsible for:
 - **Alternative**: Go or Python with Cython
 - **Key Libraries**:
   - `tokio`: Async runtime
-  - `rdkafka`: Kafka client
+  - `google-cloud-pubsub`: Google Cloud Pub/Sub client
   - `redis`: State caching
   - `prometheus`: Metrics
 
@@ -103,7 +103,8 @@ The Execution Service is a stateless, high-performance service responsible for:
 ## Configuration
 
 Environment variables:
-- `KAFKA_BROKER` - Kafka broker
+- `GOOGLE_CLOUD_PROJECT` - Google Cloud project ID
+- `PUBSUB_EMULATOR_HOST` - Pub/Sub emulator endpoint (for development)
 - `REDIS_URL` - Redis connection
 - `ADAPTER_ENDPOINTS` - Exchange adapters
 - `MAX_RETRIES` - Order retry limit

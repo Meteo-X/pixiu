@@ -18,7 +18,7 @@ This service connects to various cryptocurrency exchanges via WebSocket and REST
 - Data normalization to unified format
 - Automatic reconnection and error handling
 - Configurable data collection intervals
-- Kafka integration for data publishing
+- Google Cloud Pub/Sub integration for data publishing
 
 ## Technology Stack
 
@@ -26,7 +26,7 @@ This service connects to various cryptocurrency exchanges via WebSocket and REST
 - **Key Libraries**:
   - `aiohttp`: Async HTTP client
   - `websockets`: WebSocket client
-  - `aiokafka`: Kafka producer
+  - `google-cloud-pubsub`: Google Cloud Pub/Sub producer
   - `pydantic`: Data validation
 
 ## API Endpoints
@@ -39,14 +39,15 @@ This service connects to various cryptocurrency exchanges via WebSocket and REST
 ## Configuration
 
 Environment variables:
-- `KAFKA_BROKER` - Kafka broker address
+- `GOOGLE_CLOUD_PROJECT` - Google Cloud project ID
+- `PUBSUB_EMULATOR_HOST` - Pub/Sub emulator endpoint (for development)
 - `EXCHANGES` - Comma-separated list of exchanges to connect
 - `SYMBOLS` - Default symbols to collect
 - `LOG_LEVEL` - Logging level
 
 ## Message Format
 
-Published to Kafka topic: `market.{exchange}.{symbol}`
+Published to Google Cloud Pub/Sub topic: `market-{exchange}-{symbol}`
 
 ```json
 {

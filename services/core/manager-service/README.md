@@ -31,7 +31,7 @@ The Manager Service is the only stateful service in the system, responsible for:
   - `sqlalchemy`: ORM
   - `alembic`: Database migrations
   - `cryptography`: API key encryption
-  - `aiokafka`: Event streaming
+  - `google-cloud-pubsub`: Event streaming
 
 ## API Endpoints
 
@@ -83,5 +83,6 @@ Environment variables:
 - `DATABASE_URL` - PostgreSQL connection
 - `REDIS_URL` - Redis connection
 - `ENCRYPTION_KEY` - Master encryption key
-- `KAFKA_BROKER` - Kafka broker
+- `GOOGLE_CLOUD_PROJECT` - Google Cloud project ID
+- `PUBSUB_EMULATOR_HOST` - Pub/Sub emulator endpoint (for development)
 - `LOG_LEVEL` - Logging level

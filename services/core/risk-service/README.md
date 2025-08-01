@@ -28,7 +28,7 @@ The Risk Service is a stateless service responsible for:
 - **Language**: Python 3.10+
 - **Framework**: FastAPI
 - **Key Libraries**:
-  - `aiokafka`: Event streaming
+  - `google-cloud-pubsub`: Event streaming
   - `redis`: State caching
   - `numpy`: Risk calculations
   - `pydantic`: Data validation
@@ -69,15 +69,16 @@ Built-in rule types:
 
 ## Risk Events
 
-Published to Kafka topics:
-- `risk.alert.{level}` - Risk alerts
-- `risk.violation.{rule}` - Rule violations
-- `risk.action.{type}` - Automated actions
+Published to Google Cloud Pub/Sub topics:
+- `risk-alert-{level}` - Risk alerts
+- `risk-violation-{rule}` - Rule violations
+- `risk-action-{type}` - Automated actions
 
 ## Configuration
 
 Environment variables:
-- `KAFKA_BROKER` - Kafka broker
+- `GOOGLE_CLOUD_PROJECT` - Google Cloud project ID
+- `PUBSUB_EMULATOR_HOST` - Pub/Sub emulator endpoint (for development)
 - `REDIS_URL` - Redis connection
 - `MANAGER_SERVICE_URL` - Manager service
 - `MAX_DRAWDOWN` - Default max drawdown

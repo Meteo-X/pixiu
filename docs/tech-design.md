@@ -63,13 +63,13 @@ graph TB
         DEXAdapter[DEX适配器<br/>智能合约调用<br/>Gas估算<br/>交易确认]
     end
 
-    %% Kafka消息总线
-    subgraph MessageBus["Apache Kafka 消息总线"]
-        MarketTopic[市场数据Topic<br/>market.exchange.symbol]
-        SignalTopic[交易信号Topic<br/>signals.strategy.action]
-        OrderTopic[订单事件Topic<br/>orders.status.exchange]
-        SystemTopic[系统事件Topic<br/>system.type.source]
-        RiskTopic[风控事件Topic<br/>risk.alert.level]
+    %% Google Cloud Pub/Sub 消息总线
+    subgraph MessageBus["Google Cloud Pub/Sub 消息总线"]
+        MarketTopic[市场数据Topic<br/>market-exchange-symbol]
+        SignalTopic[交易信号Topic<br/>signals-strategy-action]
+        OrderTopic[订单事件Topic<br/>orders-status-exchange]
+        SystemTopic[系统事件Topic<br/>system-type-source]
+        RiskTopic[风控事件Topic<br/>risk-alert-level]
     end
 
     %% 核心服务层
@@ -113,12 +113,12 @@ graph TB
     OKX --> OKXAdapter
     Uniswap --> DEXAdapter
 
-    %% 数据采集到Kafka
+    %% 数据采集到Pub/Sub
     ExchangeCollector --> MarketTopic
     BlockchainCollector --> MarketTopic
     AuxCollector --> MarketTopic
 
-    %% Kafka到核心服务
+    %% Pub/Sub到核心服务
     MarketTopic --> Manager
     MarketTopic --> Strategy
     SignalTopic --> Risk
@@ -177,7 +177,7 @@ graph TB
 
 1. **数据采集层**：负责从外部系统获取数据并标准化
 2. **交易适配层**：提供统一的交易接口，屏蔽不同交易所的差异
-3. **消息总线**：基于Kafka的事件流，实现服务间解耦
+3. **消息总线**：基于Google Cloud Pub/Sub的事件流，实现服务间解耦
 4. **核心服务层**：包含业务逻辑的核心服务
 5. **存储层**：提供数据持久化和缓存
 6. **监控运维层**：系统监控和运维工具
@@ -186,10 +186,10 @@ graph TB
 
 ```
 1. 市场数据流：
-   外部API → 数据采集服务 → Kafka → 策略服务 → 交易信号
+   外部API → 数据采集服务 → Google Cloud Pub/Sub → 策略服务 → 交易信号
 
 2. 交易执行流：
-   策略服务 → 交易信号 → Kafka → 风控服务 → 执行服务 → 交易适配器 → 交易所
+   策略服务 → 交易信号 → Google Cloud Pub/Sub → 风控服务 → 执行服务 → 交易适配器 → 交易所
 
 3. 状态管理流：
    所有服务 → 状态更新 → Manager服务 → 数据存储
@@ -215,7 +215,7 @@ graph TB
 
 **解决方案**：
 
-- 使用Kafka作为消息总线，简化服务间通信
+- 使用Google Cloud Pub/Sub作为消息总线，简化服务间通信
 - 采用最终一致性模型
 - 完善的监控和日志系统
 
@@ -248,7 +248,7 @@ graph TB
 - 连接外部数据源（交易所API、区块链节点等）
 - 数据格式标准化
 - 数据质量检查
-- 发布数据到Kafka
+- 发布数据到Google Cloud Pub/Sub
 
 ### 3.1.2 服务架构
 
@@ -258,16 +258,16 @@ graph LR
         ConnMgr["连接管理器<br/>Connection Manager"]
         DataParser["数据解析器<br/>Data Parser"]
         DataValidator["数据验证器<br/>Data Validator"]
-        KafkaProducer["Kafka生产者<br/>Kafka Producer"]
+        PubSubPublisher["Pub/Sub发布者<br/>Pub/Sub Publisher"]
         
         ConnMgr --> DataParser
         DataParser --> DataValidator
-        DataValidator --> KafkaProducer
+        DataValidator --> PubSubPublisher
     end
     
     %% Styling
     classDef component fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
-    class ConnMgr,DataParser,DataValidator,KafkaProducer component
+    class ConnMgr,DataParser,DataValidator,PubSubPublisher component
 ```
 
 ### 3.1.3 数据模型
@@ -802,7 +802,8 @@ class DataAccessLayer:
 | --- | --- | --- | --- |
 | Python | 3.10+ | 主要开发语言 | - 丰富的金融库<br>- asyncio原生支持<br>- 易于维护 |
 | FastAPI | 0.100+ | Web框架 | - 高性能<br>- 自动API文档<br>- 类型安全 |
-| Kafka | 3.5+ | 消息队列 | - 高吞吐量<br>- 持久化<br>- 分区机制 |
+| Google Cloud Pub/Sub | Latest | 消息队列 | - 云原生托管<br>- 自动扩缩<br>- 全球分布<br>- 内置监控 |
+| Kafka | 3.5+ | 消息队列(可选) | - 高吞吐量<br>- 持久化<br>- 分区机制 |
 | PostgreSQL | 15+ | 关系数据库 | - 成熟稳定<br>- JSON支持<br>- 扩展性好 |
 | TimescaleDB | 2.11+ | 时序数据库 | - PG扩展<br>- 自动分区<br>- 连续聚合 |
 | Redis | 7.0+ | 缓存/状态 | - 高性能<br>- 数据结构丰富 |
@@ -854,43 +855,49 @@ services:
       - "6379:6379"
     command: redis-server --appendonly yes
 
-  kafka:
-    image: confluentinc/cp-kafka:latest
-    depends_on:
-      - zookeeper
-    environment:
-      KAFKA_BROKER_ID: 1
-      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+  # Google Cloud Pub/Sub Emulator (开发环境)
+  pubsub-emulator:
+    image: gcr.io/google.com/cloudsdktool/cloud-sdk:latest
+    command: 
+      - /bin/bash
+      - -c
+      - |
+        gcloud beta emulators pubsub start --host-port=0.0.0.0:8085
     ports:
-      - "9092:9092"
+      - "8085:8085"
+    environment:
+      PUBSUB_EMULATOR_HOST: localhost:8085
 
   # 核心服务
   data-collector:
     build: ./services/data-collector
     environment:
-      KAFKA_BROKER: kafka:9092
+      PUBSUB_EMULATOR_HOST: pubsub-emulator:8085
+      GOOGLE_CLOUD_PROJECT: pixiu-trading-dev
       LOG_LEVEL: DEBUG
     depends_on:
-      - kafka
+      - pubsub-emulator
 
   manager-service:
     build: ./services/manager
     environment:
       DATABASE_URL: postgresql://postgres:password@postgres/trading
       REDIS_URL: redis://redis:6379
+      PUBSUB_EMULATOR_HOST: pubsub-emulator:8085
+      GOOGLE_CLOUD_PROJECT: pixiu-trading-dev
     depends_on:
       - postgres
       - redis
-      - kafka
+      - pubsub-emulator
 
   strategy-service:
     build: ./services/strategy
     environment:
-      KAFKA_BROKER: kafka:9092
-      MANAGER_URL: <http://manager-service:8000>
+      PUBSUB_EMULATOR_HOST: pubsub-emulator:8085
+      GOOGLE_CLOUD_PROJECT: pixiu-trading-dev
+      MANAGER_URL: http://manager-service:8000
     depends_on:
-      - kafka
+      - pubsub-emulator
       - manager-service
 
 volumes:
@@ -908,24 +915,24 @@ graph TD
     LB --> ZoneB["Zone B<br/>API & Core Services"]
     LB --> ZoneC["Zone C<br/>API & Core Services"]
     
-    ZoneA --> Kafka["Kafka Cluster<br/>3 nodes"]
-    ZoneB --> Kafka
-    ZoneC --> Kafka
+    ZoneA --> PubSub["Google Cloud Pub/Sub<br/>Global Service"]
+    ZoneB --> PubSub
+    ZoneC --> PubSub
     
-    Kafka --> PG["PostgreSQL<br/>Primary"]
-    Kafka --> Redis["Redis<br/>Cluster"]
-    Kafka --> S3["Storage<br/>S3"]
+    PubSub --> PG["PostgreSQL<br/>Primary"]
+    PubSub --> Redis["Redis<br/>Cluster"]
+    PubSub --> GCS["Google Cloud Storage<br/>GCS"]
     
     %% Styling
     classDef external fill:#e8f4fd,stroke:#1565c0,stroke-width:2px
     classDef zone fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px
-    classDef kafka fill:#fff3e0,stroke:#f57c00,stroke-width:3px
+    classDef pubsub fill:#fff3e0,stroke:#f57c00,stroke-width:3px
     classDef storage fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
     
     class Internet,LB external
     class ZoneA,ZoneB,ZoneC zone
-    class Kafka kafka
-    class PG,Redis,S3 storage
+    class PubSub pubsub
+    class PG,Redis,GCS storage
 ```
 
 ### 6.3 Kubernetes部署配置
@@ -952,10 +959,10 @@ spec:
         ports:
         - containerPort: 8000
         env:
-        - name: KAFKA_BROKER
-          value: "kafka-cluster:9092"
+        - name: GOOGLE_CLOUD_PROJECT
+          value: "pixiu-trading"
         - name: MANAGER_URL
-          value: "<http://manager-service:8000>"
+          value: "http://manager-service:8000"
         resources:
           requests:
             memory: "256Mi"

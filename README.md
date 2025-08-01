@@ -4,7 +4,7 @@ A professional-grade cryptocurrency quantitative trading system built with micro
 
 ## 🏗️ Architecture Overview
 
-Pixiu follows a microservice architecture pattern with event-driven communication through Apache Kafka. Each service is independently deployable and can be developed using different programming languages.
+Pixiu follows a microservice architecture pattern with event-driven communication through Google Cloud Pub/Sub. Each service is independently deployable and can be developed using different programming languages.
 
 ### System Architecture
 
@@ -25,8 +25,8 @@ graph TB
     end
 
     %% Message Bus
-    subgraph MessageBus["Kafka Message Bus"]
-        Topics["Topics:<br/>market.*, signals.*<br/>orders.*, risk.*"]
+    subgraph MessageBus["Google Cloud Pub/Sub"]
+        Topics["Topics:<br/>market-*, signals-*<br/>orders-*, risk-*"]
     end
 
     %% Core Services
@@ -128,15 +128,15 @@ graph TD
 ## 🛠️ Technology Stack
 
 ### Core Technologies
-- **Message Bus**: Apache Kafka
+- **Message Bus**: Google Cloud Pub/Sub (with Kafka as fallback)
 - **Databases**: PostgreSQL, TimescaleDB, Redis
 - **Languages**: Python, Go, Rust (flexible per service)
-- **Container**: Docker, Kubernetes
+- **Container**: Docker, Google Kubernetes Engine (GKE)
 
 ### Monitoring & Operations
-- **Metrics**: Prometheus + Grafana
-- **Logging**: ELK Stack (Elasticsearch, Logstash, Kibana)
-- **Tracing**: Jaeger
+- **Metrics**: Google Cloud Monitoring, Prometheus + Grafana
+- **Logging**: Google Cloud Logging, ELK Stack (optional)
+- **Tracing**: Google Cloud Trace, Jaeger (optional)
 
 ## 🏃 Quick Start
 
@@ -178,9 +178,9 @@ docker-compose up -d
 
 Access points:
 - API Gateway: http://localhost:8000
-- Kafka UI: http://localhost:8080
+- Pub/Sub Emulator (dev): http://localhost:8085
 - Grafana: http://localhost:3000 (admin/admin123)
-- Kibana: http://localhost:5601
+- Google Cloud Console (production)
 
 ## 📊 Core Services
 

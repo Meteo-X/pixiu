@@ -18,17 +18,20 @@ services/
 - [ ] 创建 `services/adapters/binance-adapter/` 目录结构
 - [ ] 设置 TypeScript 项目配置（package.json, tsconfig.json）
 - [ ] 创建基础的 README 和文档结构
+- [ ] 配置 Google Cloud SDK 和认证
 
 ### 1.2 定义核心接口
 - [ ] 定义 `ExchangeAdapter` 统一接口
 - [ ] 定义 `DataSubscription` 订阅模型
 - [ ] 定义 `MarketData` 标准化数据格式
 - [ ] 创建错误处理类型定义
+- [ ] 设计 Google Cloud 相关接口（Pub/Sub、Monitoring）
 
 ### 1.3 配置系统设计
 - [ ] 设计 Binance 适配器配置结构
 - [ ] 实现配置加载和验证逻辑
 - [ ] 创建开发环境配置文件
+- [ ] 集成 Google Secret Manager 配置管理
 
 **交付物：**
 - 完整的项目结构和配置
@@ -111,6 +114,12 @@ services/
 - [ ] 实现消息头管理
 - [ ] 优化序列化性能
 
+### 4.4 Google Cloud Pub/Sub 集成（可选）
+- [ ] 评估 Google Cloud Pub/Sub 作为 Kafka 替代方案
+- [ ] 实现 Pub/Sub 生产者适配器
+- [ ] 配置 Topic 和订阅
+- [ ] 实现消息批处理和确认机制
+
 **交付物：**
 - 完整的 Kafka 集成
 - 支持多种数据类型的 Topic 路由
@@ -120,12 +129,15 @@ services/
 
 ### 5.1 监控指标实现
 - [ ] 实现 Prometheus 指标暴露
+- [ ] 集成 Google Cloud Monitoring
+- [ ] 配置自定义指标和仪表板
 - [ ] 实现连接状态监控
 - [ ] 实现数据延迟监控
 - [ ] 实现吞吐量监控
 
 ### 5.2 健康检查API
 - [ ] 实现服务健康检查端点
+- [ ] 配置 GKE 健康检查探针
 - [ ] 实现适配器状态查询
 - [ ] 实现运行时指标查询
 - [ ] 实现配置查询接口
@@ -134,6 +146,7 @@ services/
 - [ ] 实现订阅管理API
 - [ ] 实现适配器控制API
 - [ ] 实现日志级别动态调整
+- [ ] 集成 Cloud Logging
 - [ ] 实现graceful shutdown
 
 **交付物：**
@@ -162,10 +175,12 @@ services/
 - [ ] 数据处理性能优化
 
 ### 6.4 生产就绪
-- [ ] Docker 镜像构建
-- [ ] 部署文档编写
-- [ ] 运维手册编写
+- [ ] Docker 镜像构建和推送到 Google Container Registry
+- [ ] Cloud Build 自动化构建流程
+- [ ] GKE 部署文档编写
+- [ ] 运维手册编写（包含 Google Cloud 特定操作）
 - [ ] 性能基准测试
+- [ ] Cloud Load Balancing 配置
 
 **交付物：**
 - 完整的测试套件
@@ -181,10 +196,11 @@ services/
 - [ ] 故障排查指南
 
 ### 7.2 部署配置
-- [ ] Kubernetes 部署配置
-- [ ] Docker Compose 开发环境
-- [ ] 环境变量配置
-- [ ] 日志配置优化
+- [ ] Google Kubernetes Engine (GKE) 部署配置
+- [ ] Cloud Build 配置文件
+- [ ] Docker Compose 本地开发环境
+- [ ] Google Secret Manager 集成
+- [ ] Cloud Logging 配置
 
 **交付物：**
 - 完整的项目文档
@@ -209,6 +225,8 @@ services/
 - **连接稳定性**：基于实验数据设计重连机制
 - **数据解析错误**：完善的错误处理和容错机制
 - **性能瓶颈**：基于实验基准设置性能目标
+- **Google Cloud 配额限制**：监控 API 调用和资源使用配额
+- **网络延迟**：选择合适的 Google Cloud 区域以降低延迟
 
 ### 进度风险
 - **每个阶段设置明确的交付物**
@@ -224,6 +242,72 @@ services/
 5. **生产就绪**：完整监控、日志、部署方案
 
 总工期：**18个工作日**（约3.5周）
+
+## Google Cloud 开发环境设置
+
+### 本地开发环境
+1. **安装 Google Cloud SDK**
+   ```bash
+   # macOS
+   brew install google-cloud-sdk
+   
+   # Linux/WSL
+   curl https://sdk.cloud.google.com | bash
+   ```
+
+2. **认证和项目配置**
+   ```bash
+   gcloud auth login
+   gcloud config set project pixiu-trading
+   gcloud auth application-default login
+   ```
+
+3. **开发工具配置**
+   - VS Code 安装 Cloud Code 插件
+   - 配置 Docker Desktop 使用 gcloud 凭据
+   - 设置本地 Kubernetes (minikube/kind) 进行测试
+
+### Google Cloud 资源配置
+1. **Google Kubernetes Engine (GKE)**
+   - 创建 Autopilot 集群以简化管理
+   - 配置节点池自动扩缩
+   - 设置 Workload Identity 进行安全访问
+
+2. **Cloud Build**
+   - 配置自动构建触发器
+   - 设置多阶段 Docker 构建
+   - 集成漏洞扫描
+
+3. **Container Registry**
+   - 使用 Artifact Registry（推荐）
+   - 配置镜像生命周期策略
+   - 设置漏洞扫描
+
+4. **Cloud Monitoring & Logging**
+   - 配置日志路由和保留策略
+   - 创建自定义指标和告警
+   - 设置 SLO 和 SLI
+
+5. **Secret Manager**
+   - 存储 API 密钥和敏感配置
+   - 配置访问权限和轮换策略
+   - 集成到应用程序中
+
+### 开发工作流
+```bash
+# 1. 本地开发和测试
+npm run dev
+npm test
+
+# 2. 构建 Docker 镜像
+docker build -t gcr.io/pixiu-trading/exchange-collector:dev .
+
+# 3. 推送到 Container Registry
+docker push gcr.io/pixiu-trading/exchange-collector:dev
+
+# 4. 部署到 GKE
+kubectl apply -f k8s/
+```
 
 ## 相关文档
 

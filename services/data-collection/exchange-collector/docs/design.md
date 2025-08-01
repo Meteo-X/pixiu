@@ -237,7 +237,8 @@ exchanges:
     connections:
       max: 5
       streamsPerConnection: 1000
-      
+
+# Kafka 配置（可选，如果使用 Kafka）
 kafka:
   brokers:
     - kafka:9092
@@ -245,17 +246,46 @@ kafka:
     batchSize: 100
     lingerMs: 100
     compression: gzip
-    
+
+# Google Cloud Pub/Sub 配置（可选，作为 Kafka 替代）
+googleCloud:
+  projectId: pixiu-trading
+  pubsub:
+    enabled: true
+    topicPrefix: market-data
+    publishSettings:
+      batchSize: 100
+      delayThreshold: 100
+      messageRetention: 7d
+  secretManager:
+    enabled: true
+    secretIds:
+      - binance-api-key
+      - binance-api-secret
+      
 monitoring:
   prometheus:
     enabled: true
     port: 9090
+  googleCloudMonitoring:
+    enabled: true
+    namespace: exchange-collector
+    exportInterval: 60s
   healthCheck:
     interval: 30000
     
 logging:
   level: info
   format: json
+  googleCloudLogging:
+    enabled: true
+    severity: INFO
+    resource:
+      type: k8s_container
+      labels:
+        cluster_name: pixiu-gke-cluster
+        namespace_name: trading
+        pod_name: exchange-collector
 ```
 
 ## 性能目标
@@ -272,21 +302,94 @@ logging:
 ## 错误处理策略
 
 1. **连接错误**：指数退避重连，最大延迟 30 秒
-2. **数据解析错误**：记录错误日志，跳过错误数据
-3. **Kafka 发送错误**：本地缓冲 + 重试，超过阈值告警
-4. **内存压力**：触发背压，暂停数据接收
+2. **数据解析错误**：记录错误日志到 Cloud Logging，跳过错误数据
+3. **消息发送错误**：
+   - Kafka: 本地缓冲 + 重试，超过阈值告警
+   - Pub/Sub: 利用内置重试机制和死信队列
+4. **内存压力**：触发背压，暂停数据接收，配置 GKE 资源限制和自动扩缩
+5. **Google Cloud 服务错误**：
+   - API 配额错误：实现指数退避和请求限流
+   - 认证错误：自动刷新认证令牌
+   - 网络错误：多区域容错和自动故障转移
 
 ## 监控告警
 
-1. 连接断开超过 1 分钟
-2. 数据延迟 P95 > 500ms
-3. 错误率 > 1%
-4. 内存使用 > 80%
-5. Kafka 发送失败率 > 0.1%
+### Google Cloud Monitoring 告警策略
+1. **连接健康**
+   - 指标：`exchange_collector/connections/active`
+   - 条件：连接断开超过 1 分钟
+   - 通知：PagerDuty / Slack
+
+2. **数据延迟**
+   - 指标：`exchange_collector/latency/p95`
+   - 条件：P95 延迟 > 500ms 持续 5 分钟
+   - 通知：Slack
+
+3. **错误率**
+   - 指标：`exchange_collector/errors/rate`
+   - 条件：错误率 > 1% 持续 5 分钟
+   - 通知：Email / Slack
+
+4. **资源使用**
+   - 指标：GKE 内存使用率
+   - 条件：内存使用 > 80% 持续 10 分钟
+   - 操作：触发 HPA 自动扩容
+
+5. **消息发送失败**
+   - 指标：`exchange_collector/messages/failed`
+   - 条件：发送失败率 > 0.1%
+   - 通知：PagerDuty
+
+### SLO/SLI 定义
+- **可用性 SLO**: 99.9% (每月停机时间 < 43 分钟)
+- **延迟 SLO**: P95 < 100ms, P99 < 500ms
+- **数据完整性 SLO**: 数据丢失率 < 0.01%
 
 ## 扩展性考虑
 
 1. **多交易所支持**：通过策略模式实现不同交易所的适配器
-2. **水平扩展**：通过交易对分片实现多实例部署
+2. **水平扩展**：通过交易对分片实现多实例部署，利用 GKE 自动扩缩
 3. **数据类型扩展**：插件化的数据解析器
-4. **存储扩展**：除 Kafka 外支持其他消息队列
+4. **存储扩展**：支持 Kafka 和 Google Cloud Pub/Sub，可根据需求切换
+5. **区域扩展**：利用 Google Cloud 多区域部署降低延迟
+
+## Google Cloud 集成架构
+
+### 部署架构
+```
+┌─────────────────────────────────────────────────────────┐
+│                   Google Cloud Platform                  │
+├─────────────────────────────────────────────────────────┤
+│                                                         │
+│  ┌─────────────────┐        ┌────────────────────┐    │
+│  │  Cloud Build    │        │  Artifact Registry │    │
+│  │  (CI/CD)        │───────▶│  (Container Images)│    │
+│  └─────────────────┘        └──────────┬─────────┘    │
+│                                        │               │
+│  ┌─────────────────────────────────────▼───────────┐  │
+│  │           Google Kubernetes Engine (GKE)         │  │
+│  │  ┌──────────────┐    ┌──────────────────────┐  │  │
+│  │  │  Autopilot   │    │  Exchange Collector  │  │  │
+│  │  │  Node Pool   │    │     Deployment       │  │  │
+│  │  └──────────────┘    └──────────────────────┘  │  │
+│  └──────────────────────────┬──────────────────────┘  │
+│                             │                          │
+│  ┌──────────────────────────▼──────────────────────┐  │
+│  │              Google Cloud Services               │  │
+│  │  ┌────────────┐  ┌─────────────┐  ┌──────────┐ │  │
+│  │  │  Pub/Sub   │  │   Secret    │  │  Cloud   │ │  │
+│  │  │            │  │   Manager   │  │  Logging │ │  │
+│  │  └────────────┘  └─────────────┘  └──────────┘ │  │
+│  │  ┌────────────┐  ┌─────────────┐  ┌──────────┐ │  │
+│  │  │   Cloud    │  │   Cloud     │  │  Cloud   │ │  │
+│  │  │ Monitoring │  │   Trace     │  │  Storage │ │  │
+│  │  └────────────┘  └─────────────┘  └──────────┘ │  │
+│  └──────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────┘
+```
+
+### 安全架构
+- **Workload Identity**: 服务账号与 Kubernetes 服务账号绑定
+- **Binary Authorization**: 只允许运行经过验证的容器镜像
+- **Network Policies**: 限制 Pod 间通信
+- **Private GKE Cluster**: 节点无公网 IP，通过 Cloud NAT 访问外网

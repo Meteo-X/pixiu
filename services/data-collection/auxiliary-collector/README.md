@@ -27,7 +27,7 @@ This service collects auxiliary market data that complements the main trading da
 - **Key Libraries**:
   - `httpx`: Async HTTP client
   - `apscheduler`: Task scheduling
-  - `aiokafka`: Kafka producer
+  - `google-cloud-pubsub`: Google Cloud Pub/Sub producer
   - `beautifulsoup4`: Web scraping
 
 ## API Endpoints
@@ -40,7 +40,8 @@ This service collects auxiliary market data that complements the main trading da
 ## Configuration
 
 Environment variables:
-- `KAFKA_BROKER` - Kafka broker address
+- `GOOGLE_CLOUD_PROJECT` - Google Cloud project ID
+- `PUBSUB_EMULATOR_HOST` - Pub/Sub emulator endpoint (for development)
 - `DATA_SOURCES` - JSON config of data sources
 - `COLLECTION_INTERVAL` - Data collection interval
 - `CACHE_TTL` - Cache time-to-live
@@ -48,7 +49,7 @@ Environment variables:
 
 ## Message Format
 
-Published to Kafka topic: `market.auxiliary.{data_type}`
+Published to Google Cloud Pub/Sub topic: `market-auxiliary-{data_type}`
 
 ```json
 {

@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:docs.anthropic.com)",
+      "Bash(mkdir:*)",
+      "Bash(cp:*)",
+      "Bash(touch:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "WebFetch(domain:developers.binance.com)",
+      "Bash(npm run exp1:*)",
+      "Bash(npm run exp2:*)",
+      "Bash(npm run exp3:*)",
+      "WebFetch(domain:www.bitget.com)",
+      "WebFetch(domain:www.okx.com)",
+      "WebFetch(domain:supabase.com)",
+      "WebFetch(domain:www.cloudflare.com)",
+      "WebFetch(domain:firebase.google.com)",
+      "WebFetch(domain:vercel.com)",
+      "WebFetch(domain:developers.cloudflare.com)",
+      "WebFetch(domain:cloud.google.com)"
+    ],
+    "deny": []
+  }
+}

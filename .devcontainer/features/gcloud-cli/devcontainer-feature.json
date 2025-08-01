@@ -1,0 +1,6 @@
+{
+    "id": "gcloud-cli",
+    "version": "1.0.0",
+    "name": "Google Cloud CLI",
+    "description": "Install the Google Cloud CLI for managing Google Cloud resources.",
+}

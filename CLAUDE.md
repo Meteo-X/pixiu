@@ -4,13 +4,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Pixiu is a cryptocurrency quantitative trading system built with microservice architecture. The system follows an event-driven design pattern using Apache Kafka for service communication and supports multiple exchanges (CEX and DEX).
+Pixiu is a cryptocurrency quantitative trading system built with microservice architecture. The system follows an event-driven design pattern using Google Cloud Pub/Sub for service communication and supports multiple exchanges (CEX and DEX).
 
 ## Architecture
 
 The system uses a layered microservice architecture:
 - **Data Collection Layer**: Exchange/blockchain/auxiliary data collectors
-- **Message Bus**: Apache Kafka for event streaming
+- **Message Bus**: Google Cloud Pub/Sub for event streaming (with Kafka as fallback option)
 - **Core Services**: Manager (stateful), Strategy, Risk, and Execution services  
 - **Exchange Adapters**: Unified trading interfaces for different exchanges
 - **Storage Layer**: PostgreSQL, TimescaleDB, Redis
@@ -96,12 +96,12 @@ air
 
 ## Technology Stack by Service
 
-- **Python Services**: FastAPI, SQLAlchemy, Alembic (migrations), aiokafka, asyncpg, Redis
-- **TypeScript Services**: Express.js, ws (WebSocket), kafkajs, winston (logging)
-- **Go Services**: Gin (HTTP), gorilla/websocket, Kafka Go client
+- **Python Services**: FastAPI, SQLAlchemy, Alembic (migrations), google-cloud-pubsub, asyncpg, Redis
+- **TypeScript Services**: Express.js, ws (WebSocket), @google-cloud/pubsub, winston (logging)
+- **Go Services**: Gin (HTTP), gorilla/websocket, Google Cloud Pub/Sub Go client
 - **Databases**: PostgreSQL (business data), TimescaleDB (time series), Redis (cache/state)
-- **Message Bus**: Apache Kafka
-- **Monitoring**: Prometheus, Grafana, ELK Stack
+- **Message Bus**: Google Cloud Pub/Sub (with Kafka as fallback)
+- **Monitoring**: Google Cloud Monitoring, Prometheus, Grafana
 
 ## Database Management
 
@@ -139,7 +139,7 @@ redis-cli -h localhost -p 6379
 
 Services use environment variables for configuration. Key variables:
 - Database connections: `DATABASE_URL`, `REDIS_URL`
-- Kafka: `KAFKA_BROKER` 
+- Google Cloud: `GOOGLE_CLOUD_PROJECT`, `PUBSUB_EMULATOR_HOST` (for development)
 - Service URLs: `MANAGER_URL`, etc.
 - Log levels: `LOG_LEVEL`
 
@@ -148,15 +148,15 @@ Development configurations are in `deployment/docker-compose/.env` files.
 ## Testing Strategy
 
 - **Unit Tests**: `pytest` for Python, `jest` for TypeScript, `go test` for Go
-- **Integration Tests**: Use testcontainers for database/Kafka integration
+- **Integration Tests**: Use testcontainers for database/Pub/Sub integration
 - **Coverage Requirements**: ≥80% for unit tests, ≥60% for integration tests
 - **Test Data**: Use factory patterns for consistent test data generation
 
 ## Common Patterns
 
-- Services communicate via Kafka topics following naming convention: `{domain}.{type}.{source}`
+- Services communicate via Google Cloud Pub/Sub topics following naming convention: `{domain}-{type}-{source}`
 - All services expose health endpoints at `/health`
-- Metrics exposed at `/metrics` for Prometheus scraping
-- Structured logging using appropriate libraries per language
+- Metrics exposed at `/metrics` for Prometheus scraping, and integrated with Google Cloud Monitoring
+- Structured logging using appropriate libraries per language, with Google Cloud Logging integration
 - Error handling with proper error types and status codes
 - Configuration validation on service startup

@@ -29,7 +29,7 @@ The Strategy Service is a stateless service responsible for:
   - `pandas`: Data manipulation
   - `numpy`: Numerical computations
   - `ta-lib`: Technical indicators
-  - `aiokafka`: Event streaming
+  - `google-cloud-pubsub`: Event streaming
   - `asyncio`: Async processing
 
 ## API Endpoints
@@ -71,7 +71,7 @@ class BaseStrategy:
 
 ## Signal Format
 
-Generated signals published to Kafka topic: `signals.{strategy_id}.{action}`
+Generated signals published to Google Cloud Pub/Sub topic: `signals-{strategy_id}-{action}`
 
 ```json
 {
@@ -92,7 +92,8 @@ Generated signals published to Kafka topic: `signals.{strategy_id}.{action}`
 ## Configuration
 
 Environment variables:
-- `KAFKA_BROKER` - Kafka broker
+- `GOOGLE_CLOUD_PROJECT` - Google Cloud project ID
+- `PUBSUB_EMULATOR_HOST` - Pub/Sub emulator endpoint (for development)
 - `MANAGER_SERVICE_URL` - Manager service URL
 - `REDIS_URL` - Redis for caching
 - `MAX_STRATEGIES` - Max concurrent strategies
