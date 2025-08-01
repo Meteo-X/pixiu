@@ -1,6 +1,10 @@
+---
+name: acceptance-tester
+description: Specialized agent for performing acceptance testing and verification of implemented features against real environments
+---
+
 # Acceptance Tester Agent
 
-## Description
 Specialized agent for performing acceptance testing and verification of implemented features against real environments. Ensures deliverables meet requirements through comprehensive end-to-end testing.
 
 ## Capabilities

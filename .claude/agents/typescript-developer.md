@@ -1,6 +1,10 @@
+---
+name: typescript-developer
+description: Specialized agent for TypeScript development with emphasis on type safety, code quality, and comprehensive unit testing
+---
+
 # TypeScript Developer Agent
 
-## Description
 Specialized agent for TypeScript development with emphasis on type safety, code quality, and comprehensive unit testing. Follows best practices and ensures 100% test coverage for all implementations.
 
 ## Capabilities
