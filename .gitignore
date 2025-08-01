@@ -1,0 +1,94 @@
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+
+# Build outputs
+dist/
+build/
+*.tsbuildinfo
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Runtime data
+pids/
+*.pid
+*.seed
+*.pid.lock
+*.log
+logs/
+
+# Coverage directory used by tools like istanbul
+coverage/
+.nyc_output/
+
+# Environment variables and sensitive configuration
+.env
+.env.*
+!.env.example
+.env.gcloud
+.env.google-cloud
+
+# Google Cloud sensitive files
+**/pixiu-trading-key.json
+**/*-key.json
+**/*-credentials.json
+.gcloud/
+.config/gcloud/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Python specific
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+.venv/
+
+# Go specific
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+go.work
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+
+# Test results
+test-results/
+junit.xml
+
+# Local development
+.local/
+*.local
+
+# Experimental data that shouldn't be committed
+experiments/*/data/*.json
+experiments/*/logs/*.json
+!experiments/*/data/.gitkeep
+!experiments/*/logs/.gitkeep
