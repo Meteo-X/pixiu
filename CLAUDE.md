@@ -2,6 +2,12 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## IMPORTANT
+
+All the documents MUST be written in Simplified Chinese, except some domain terms or code fragements.
+
+All the diagrams in documents MUST be written in `mermaid` syntax.
+
 ## Project Overview
 
 Pixiu is a cryptocurrency quantitative trading system built with microservice architecture. The system follows an event-driven design pattern using Google Cloud Pub/Sub for service communication and supports multiple exchanges (CEX and DEX).

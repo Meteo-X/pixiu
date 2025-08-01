@@ -23,6 +23,7 @@ This command assigns and tracks implementation tasks from project documents.
 3. Creates a todo list with the task marked as in_progress
 4. Provides task details and next steps
 5. Ask if the task can start or need more discussion
+6. Write and run unit tests for the updated code, fix errors until all the unit tests passed.
 
 ## Implementation
 The command will:
@@ -32,3 +33,4 @@ The command will:
 - Mark the task as in_progress
 - Display task details and context
 - Ask to start the task, or other things to do
+- Create unit tests and run tests to verify the implementation

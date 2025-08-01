@@ -22,7 +22,10 @@
       "WebFetch(domain:cloud.google.com)",
       "Bash(npm run build:*)",
       "Bash(npx ts-node:*)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "mcp__ide__getDiagnostics",
+      "Bash(find:*)",
+      "Bash(ls:*)"
     ],
     "deny": []
   }
