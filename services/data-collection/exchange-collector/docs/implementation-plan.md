@@ -20,12 +20,14 @@ services/
 - [x] 创建基础的 README 和文档结构
 - [x] 配置 Google Cloud SDK 和认证
 
-### 1.2 定义核心接口
-- [ ] 定义 `ExchangeAdapter` 统一接口
-- [ ] 定义 `DataSubscription` 订阅模型
-- [ ] 定义 `MarketData` 标准化数据格式
-- [ ] 创建错误处理类型定义
-- [ ] 设计 Google Cloud 相关接口（Pub/Sub、Monitoring）
+### 1.2 定义核心接口 ✅ **已完成**
+- [x] 回顾 experiments/binance-ws-experiment 中的实验代码，理解 Binance WebSocket 的用法和数据结构
+- [x] 定义 `ExchangeAdapter` 统一接口
+- [x] 定义 `DataSubscription` 订阅模型
+- [x] 定义 `MarketData` 标准化数据格式
+- [x] 创建错误处理类型定义
+- [x] 设计 Google Cloud 相关接口（Pub/Sub、Monitoring）
+- [x] 连接到 Binance Websocket 测试，保证此项任务已正确完成
 
 ### 1.3 配置系统设计
 - [ ] 设计 Binance 适配器配置结构

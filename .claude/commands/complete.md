@@ -23,11 +23,14 @@ This command marks tasks as completed and updates project documents.
 3. Updates the Claude Code todo list to mark the task as completed
 4. Creates a backup of the original file
 5. Shows completion summary and next available tasks
+6. Commit all the updated files, but ignore the files which contain secret data, for security
 
 ## Implementation
 The command will:
 - Read and parse the task document
 - Find the specific task by number/identifier
+- Scan all the updated files to ensure there aren't any secret data will be committed
+- Commit all the updated files
 - Replace `- [ ]` with `- [x]` in the document
 - Update the todo list status to completed
 - Create backup and show progress summary

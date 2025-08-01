@@ -22,6 +22,7 @@ This command assigns and tracks implementation tasks from project documents.
 2. Locates the specified task in the document
 3. Creates a todo list with the task marked as in_progress
 4. Provides task details and next steps
+5. Ask if the task can start or need more discussion
 
 ## Implementation
 The command will:
@@ -30,3 +31,4 @@ The command will:
 - Add it to the Claude Code todo list
 - Mark the task as in_progress
 - Display task details and context
+- Ask to start the task, or other things to do
