@@ -1,14 +1,13 @@
-# Exchange Collector 开发环境配置
-name: exchange-collector
+# 多适配器配置示例
+name: exchange-collector-multi
 version: 1.0.0
-environment: development
+environment: test
 
 server:
   port: 8080
   host: 0.0.0.0
   enableCors: true
 
-# 适配器配置 - 通用格式
 adapters:
   binance:
     config:
@@ -28,21 +27,63 @@ adapters:
       dataTypes:
         - trade
         - ticker
-        - kline_1m
       enableAllTickers: false
-      customParams: {}
     extensions:
       testnet: false
       enableCompression: true
       enableCombinedStream: true
       maxStreamCount: 1024
 
-# Google Cloud Pub/Sub 配置
+  okx:
+    config:
+      enabled: true
+      endpoints:
+        ws: wss://ws.okx.com:8443/ws/v5/public
+        rest: https://www.okx.com
+      connection:
+        timeout: 15000
+        maxRetries: 5
+        retryInterval: 3000
+        heartbeatInterval: 25000
+    subscription:
+      symbols:
+        - BTC-USDT
+        - ETH-USDT
+      dataTypes:
+        - trade
+        - ticker
+      enableAllTickers: false
+      customParams:
+        channel: tickers
+    extensions:
+      simulated: false
+      accountType: spot
+
+  huobi:
+    config:
+      enabled: false
+      endpoints:
+        ws: wss://api.huobi.pro/ws
+        rest: https://api.huobi.pro
+      connection:
+        timeout: 8000
+        maxRetries: 2
+        retryInterval: 3000
+        heartbeatInterval: 20000
+    subscription:
+      symbols:
+        - btcusdt
+        - ethusdt
+      dataTypes:
+        - trade
+        - depth
+      enableAllTickers: false
+
 pubsub:
-  projectId: pixiu-trading-dev
+  projectId: pixiu-trading-multi
   useEmulator: true
   emulatorHost: localhost:8085
-  topicPrefix: market-data
+  topicPrefix: multi-market-data
   publishSettings:
     enableBatching: true
     batchSize: 100
@@ -53,7 +94,6 @@ pubsub:
       initialRetryDelay: 1000
       maxRetryDelay: 60000
 
-# 监控配置
 monitoring:
   enableMetrics: true
   enableHealthCheck: true
@@ -64,7 +104,6 @@ monitoring:
     port: 9090
     path: /metrics
 
-# 日志配置
 logging:
   level: info
   format: json

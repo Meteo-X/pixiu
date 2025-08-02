@@ -248,7 +248,7 @@ export class ExchangeCollectorService {
     const adapterConfigs = new Map<string, IntegrationConfig>();
     
     for (const [exchangeName, adapterConfig] of Object.entries(config.adapters)) {
-      if (adapterConfig.enabled) {
+      if (adapterConfig.config.enabled) {
         const integrationConfig: IntegrationConfig = {
           adapterConfig: {
             exchange: exchangeName,

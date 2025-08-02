@@ -1,0 +1,60 @@
+# 无效配置示例 - 用于测试验证错误处理
+name: exchange-collector-invalid
+version: 1.0.0
+environment: test
+
+server:
+  port: invalid-port  # 应该是数字
+  host: 0.0.0.0
+  enableCors: yes  # 应该是boolean
+
+adapters:
+  binance:
+    config:
+      enabled: true
+      # 缺少endpoints配置
+      connection:
+        timeout: 500  # 太小，应该至少1000
+        maxRetries: -1  # 不能为负数
+        retryInterval: 100  # 太小，应该至少1000
+        heartbeatInterval: 1000  # 太小，应该至少5000
+    subscription:
+      # 缺少symbols数组
+      dataTypes:
+        - invalid-data-type  # 无效的数据类型
+        - another-invalid-type
+      enableAllTickers: maybe  # 应该是boolean
+    extensions:
+      maxStreamCount: 2048  # 超过Binance限制1024
+
+  okx:
+    config:
+      enabled: true
+      endpoints:
+        ws: not-a-valid-websocket-url
+        rest: also-not-valid
+      connection:
+        timeout: "10000"  # 应该是数字，不是字符串
+        maxRetries: 3.5  # 应该是整数
+        retryInterval: 5000
+        heartbeatInterval: 30000
+    subscription:
+      symbols: []  # 空数组，应该至少有一个元素
+      dataTypes: []  # 空数组，应该至少有一个元素
+
+# 缺少必需的pubsub配置
+
+monitoring:
+  enableMetrics: "true"  # 应该是boolean
+  enableHealthCheck: 1  # 应该是boolean
+  metricsInterval: -5000  # 不能为负数
+  healthCheckInterval: 0  # 太小
+  prometheus:
+    enabled: true
+    port: 999999  # 超出端口范围
+    path: invalid-path  # 应该以/开头
+
+logging:
+  level: invalid-level  # 无效的日志级别
+  format: invalid-format  # 无效的格式
+  output: invalid-output  # 无效的输出类型

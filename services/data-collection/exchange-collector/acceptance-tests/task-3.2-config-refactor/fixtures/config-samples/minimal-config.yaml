@@ -1,0 +1,26 @@
+# 最小有效配置示例
+name: exchange-collector-minimal
+version: 1.0.0
+environment: test
+
+adapters:
+  binance:
+    config:
+      enabled: true
+      endpoints:
+        ws: wss://stream.binance.com:9443/ws
+        rest: https://api.binance.com/api
+      connection:
+        timeout: 5000
+        maxRetries: 1
+        retryInterval: 1000
+        heartbeatInterval: 10000
+    subscription:
+      symbols:
+        - BTCUSDT
+      dataTypes:
+        - trade
+
+pubsub:
+  projectId: pixiu-trading-minimal
+  useEmulator: true

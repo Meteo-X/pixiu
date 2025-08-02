@@ -1,14 +1,13 @@
-# Exchange Collector 开发环境配置
-name: exchange-collector
+# 有效的Binance适配器配置示例
+name: exchange-collector-test
 version: 1.0.0
-environment: development
+environment: test
 
 server:
   port: 8080
   host: 0.0.0.0
   enableCors: true
 
-# 适配器配置 - 通用格式
 adapters:
   binance:
     config:
@@ -21,51 +20,54 @@ adapters:
         maxRetries: 3
         retryInterval: 5000
         heartbeatInterval: 30000
+      auth:
+        apiKey: test-binance-api-key
+        apiSecret: test-binance-api-secret
     subscription:
       symbols:
         - BTCUSDT
         - ETHUSDT
+        - ADAUSDT
       dataTypes:
         - trade
         - ticker
         - kline_1m
       enableAllTickers: false
-      customParams: {}
+      customParams:
+        bufferSize: 1000
+        enableCompression: true
     extensions:
       testnet: false
       enableCompression: true
       enableCombinedStream: true
       maxStreamCount: 1024
 
-# Google Cloud Pub/Sub 配置
 pubsub:
-  projectId: pixiu-trading-dev
+  projectId: pixiu-trading-test
   useEmulator: true
   emulatorHost: localhost:8085
-  topicPrefix: market-data
+  topicPrefix: test-market-data
   publishSettings:
     enableBatching: true
-    batchSize: 100
-    batchTimeout: 1000
+    batchSize: 50
+    batchTimeout: 500
     enableMessageOrdering: false
     retrySettings:
-      maxRetries: 3
+      maxRetries: 2
       initialRetryDelay: 1000
-      maxRetryDelay: 60000
+      maxRetryDelay: 30000
 
-# 监控配置
 monitoring:
   enableMetrics: true
   enableHealthCheck: true
-  metricsInterval: 30000
-  healthCheckInterval: 30000
+  metricsInterval: 15000
+  healthCheckInterval: 15000
   prometheus:
     enabled: true
     port: 9090
     path: /metrics
 
-# 日志配置
 logging:
-  level: info
+  level: debug
   format: json
   output: console

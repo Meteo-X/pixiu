@@ -6,6 +6,16 @@
 import * as Joi from 'joi';
 import { BaseConfigManager, BaseConfig, ConfigSource } from '@pixiu/shared-core';
 import { DataType } from '@pixiu/adapter-base';
+import { 
+  AdapterConfiguration, 
+  PartialAdapterConfiguration,
+  AdapterType
+} from './adapter-config';
+import { 
+  MultiAdapterConfigManager,
+  ConfigMergeOptions,
+  ConfigMergeResult 
+} from './config-merger';
 
 export interface ExchangeCollectorConfig extends BaseConfig {
   /** 服务配置 */
@@ -15,36 +25,9 @@ export interface ExchangeCollectorConfig extends BaseConfig {
     enableCors: boolean;
   };
 
-  /** 适配器配置 */
+  /** 适配器配置 - 通用格式 */
   adapters: {
-    [exchangeName: string]: {
-      enabled: boolean;
-      config: {
-        endpoints: {
-          ws: string;
-          rest: string;
-        };
-        connection: {
-          timeout: number;
-          maxRetries: number;
-          retryInterval: number;
-          heartbeatInterval: number;
-        };
-        auth?: {
-          apiKey?: string;
-          apiSecret?: string;
-        };
-        binance?: {
-          testnet?: boolean;
-          enableCompression?: boolean;
-        };
-      };
-      subscription: {
-        symbols: string[];
-        dataTypes: DataType[];
-        enableAllTickers?: boolean;
-      };
-    };
+    [exchangeName: string]: AdapterConfiguration;
   };
 
   /** Pub/Sub配置 */
@@ -109,8 +92,8 @@ const configSchema = Joi.object({
   adapters: Joi.object().pattern(
     Joi.string(),
     Joi.object({
-      enabled: Joi.boolean().default(true),
       config: Joi.object({
+        enabled: Joi.boolean().default(true),
         endpoints: Joi.object({
           ws: Joi.string().uri().required(),
           rest: Joi.string().uri().required()
@@ -124,10 +107,6 @@ const configSchema = Joi.object({
         auth: Joi.object({
           apiKey: Joi.string(),
           apiSecret: Joi.string()
-        }).optional(),
-        binance: Joi.object({
-          testnet: Joi.boolean().default(false),
-          enableCompression: Joi.boolean().default(true)
         }).optional()
       }).required(),
       subscription: Joi.object({
@@ -135,8 +114,10 @@ const configSchema = Joi.object({
         dataTypes: Joi.array().items(
           Joi.string().valid(...Object.values(DataType))
         ).min(1).required(),
-        enableAllTickers: Joi.boolean().default(false)
-      }).required()
+        enableAllTickers: Joi.boolean().default(false),
+        customParams: Joi.object().optional()
+      }).required(),
+      extensions: Joi.object().optional()
     })
   ).min(1).required(),
 
@@ -195,6 +176,8 @@ const configSchema = Joi.object({
  */
 export class ExchangeCollectorConfigManager extends BaseConfigManager<ExchangeCollectorConfig> {
   
+  private multiAdapterManager: MultiAdapterConfigManager;
+
   constructor() {
     super({
       enableValidation: true,
@@ -202,6 +185,8 @@ export class ExchangeCollectorConfigManager extends BaseConfigManager<ExchangeCo
       enableEnvOverride: true,
       cacheTtl: 300000 // 5分钟
     });
+
+    this.multiAdapterManager = new MultiAdapterConfigManager();
 
     // 添加Joi验证器
     this.addValidator((config) => {
@@ -331,8 +316,8 @@ export class ExchangeCollectorConfigManager extends BaseConfigManager<ExchangeCo
     if (process.env.BINANCE_SYMBOLS) {
       overrides.adapters = overrides.adapters || {};
       overrides.adapters.binance = overrides.adapters.binance || {
-        enabled: true,
         config: {
+          enabled: true,
           endpoints: {
             ws: 'wss://stream.binance.com:9443/ws',
             rest: 'https://api.binance.com/api'
@@ -346,7 +331,12 @@ export class ExchangeCollectorConfigManager extends BaseConfigManager<ExchangeCo
         },
         subscription: {
           symbols: process.env.BINANCE_SYMBOLS.split(','),
-          dataTypes: [DataType.TRADE, DataType.TICKER]
+          dataTypes: [DataType.TRADE, DataType.TICKER],
+          customParams: {}
+        },
+        extensions: {
+          testnet: false,
+          enableCompression: true
         }
       };
     }
@@ -357,7 +347,7 @@ export class ExchangeCollectorConfigManager extends BaseConfigManager<ExchangeCo
   /**
    * 获取适配器配置
    */
-  getAdapterConfig(exchangeName: string) {
+  getAdapterConfig(exchangeName: string): AdapterConfiguration | undefined {
     const config = this.getConfig();
     return config?.adapters[exchangeName];
   }
@@ -370,7 +360,7 @@ export class ExchangeCollectorConfigManager extends BaseConfigManager<ExchangeCo
     if (!config) return [];
 
     return Object.entries(config.adapters)
-      .filter(([, adapterConfig]) => adapterConfig.enabled)
+      .filter(([, adapterConfig]) => adapterConfig.config.enabled)
       .map(([name]) => name);
   }
 
@@ -379,7 +369,82 @@ export class ExchangeCollectorConfigManager extends BaseConfigManager<ExchangeCo
    */
   isAdapterEnabled(exchangeName: string): boolean {
     const adapterConfig = this.getAdapterConfig(exchangeName);
-    return adapterConfig?.enabled || false;
+    return adapterConfig?.config.enabled || false;
+  }
+
+  /**
+   * 添加或更新适配器配置
+   */
+  setAdapterConfig(
+    exchangeName: string, 
+    adapterType: AdapterType, 
+    configuration: PartialAdapterConfiguration,
+    options?: Partial<ConfigMergeOptions>
+  ): ConfigMergeResult {
+    const result = this.multiAdapterManager.addAdapterConfig(
+      exchangeName, 
+      adapterType, 
+      configuration, 
+      options
+    );
+
+    if (result.success) {
+      // 更新内部配置对象
+      if (this.config) {
+        this.config.adapters[exchangeName] = result.config;
+        this.emit('config', { type: 'update', config: this.config });
+      }
+    }
+
+    return result;
+  }
+
+  /**
+   * 移除适配器配置
+   */
+  removeAdapterConfig(exchangeName: string): boolean {
+    if (this.config && this.config.adapters[exchangeName]) {
+      delete this.config.adapters[exchangeName];
+      this.emit('config', { type: 'update', config: this.config });
+      return this.multiAdapterManager.removeAdapterConfig(exchangeName);
+    }
+    return false;
+  }
+
+  /**
+   * 验证所有适配器配置
+   */
+  validateAdapterConfigs(): { [adapterName: string]: string[] } {
+    return this.multiAdapterManager.validateAllConfigs();
+  }
+
+  /**
+   * 获取适配器配置统计信息
+   */
+  getAdapterStats() {
+    return this.multiAdapterManager.getStats();
+  }
+
+  /**
+   * 批量导入适配器配置
+   */
+  batchImportAdapterConfigs(
+    configs: { [adapterName: string]: { type: AdapterType; config: PartialAdapterConfiguration } },
+    options?: Partial<ConfigMergeOptions>
+  ): { [adapterName: string]: ConfigMergeResult } {
+    const results = this.multiAdapterManager.batchImportConfigs(configs, options);
+    
+    // 更新主配置
+    if (this.config) {
+      for (const [adapterName, result] of Object.entries(results)) {
+        if (result.success) {
+          this.config.adapters[adapterName] = result.config;
+        }
+      }
+      this.emit('config', { type: 'update', config: this.config });
+    }
+
+    return results;
   }
 
   /**
