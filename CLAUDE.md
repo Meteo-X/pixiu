@@ -14,16 +14,101 @@ Pixiu is a cryptocurrency quantitative trading system built with microservice ar
 
 ## Architecture
 
-The system uses a layered microservice architecture:
-- **Data Collection Layer**: Exchange/blockchain/auxiliary data collectors
-- **Message Bus**: Google Cloud Pub/Sub for event streaming (with configurable alternatives)
-- **Core Services**: Manager (stateful), Strategy, Risk, and Execution services  
-- **Exchange Adapters**: Unified trading interfaces for different exchanges
-- **Storage Layer**: PostgreSQL, TimescaleDB, Redis
+The system uses a layered microservice architecture with npm workspaces for TypeScript components:
 
-The Manager service is the only stateful service and handles centralized state management including API keys, balances, positions, and fund allocation.
+```mermaid
+graph TB
+    subgraph "Infrastructure Layer"
+        SC[shared-core<br/>配置管理、错误处理、监控、消息总线]
+        AB[adapter-base<br/>适配器基础框架]
+    end
+    
+    subgraph "Adapter Layer"
+        BA[binance-adapter<br/>Binance交易所适配器SDK]
+    end
+    
+    subgraph "Service Layer"
+        EC[exchange-collector<br/>数据采集服务]
+        MS[manager-service<br/>核心管理服务]
+        SS[strategy-service<br/>策略服务]
+        RS[risk-service<br/>风险管理服务]
+        ES[execution-service<br/>执行服务]
+    end
+    
+    subgraph "Data Collection"
+        BC[blockchain-collector<br/>区块链数据采集]
+        AC[auxiliary-collector<br/>辅助数据采集]
+    end
+    
+    SC --> AB
+    AB --> BA
+    BA --> EC
+    SC --> EC
+    SC --> MS
+    SC --> SS
+    SC --> RS
+    SC --> ES
+```
+
+### Key Architecture Principles:
+- **Infrastructure-First**: Shared components in `services/infrastructure/` provide common functionality
+- **Adapter Pattern**: Exchange adapters are SDKs integrated into exchange-collector, not standalone services
+- **Event-Driven**: Services communicate via Google Cloud Pub/Sub with configurable alternatives
+- **Stateful Core**: Manager service is the only stateful service handling centralized state management
+- **Configuration-Driven**: Adapter activation and configuration managed through environment-specific files
 
 ## Development Commands
+
+### Workspace Management (Root Level)
+```bash
+# Install all workspace dependencies
+npm install
+
+# Run all tests
+npm test
+
+# Run tests by category
+npm run test:infrastructure  # shared-core, adapter-base
+npm run test:adapters        # binance-adapter
+npm run test:services        # exchange-collector
+
+# Run tests with coverage
+npm run test:coverage
+
+# Watch mode for all tests
+npm run test:watch
+
+# Build all TypeScript packages
+npm run build
+
+# Build by category  
+npm run build:infrastructure
+npm run build:adapters
+npm run build:services
+
+# Lint all packages
+npm run lint
+
+# Format all packages
+npm run format
+
+# Clean all build artifacts
+npm run clean
+```
+
+### Working with Individual Packages
+```bash
+# Test specific package
+npm run test -w @pixiu/shared-core
+npm run test -w @pixiu/binance-adapter
+
+# Run single test file
+cd services/infrastructure/shared-core
+npm test -- tests/config.test.ts
+
+# Development with auto-rebuild
+npm run dev -w @pixiu/exchange-collector
+```
 
 ### Docker Development Environment
 ```bash
@@ -41,9 +126,7 @@ docker-compose up -d
 docker-compose -f docker-compose.dev.yml down
 ```
 
-### Service-Specific Commands
-
-#### Python Services (Manager, Strategy, Risk, Execution, Auxiliary Collector)
+### Python Services (Manager, Strategy, Risk, Execution, Auxiliary Collector)
 ```bash
 # Install dependencies
 pip install -r requirements.txt
@@ -64,25 +147,7 @@ cd services/core/manager-service
 uvicorn src.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-#### TypeScript/Node.js Services (Exchange Collector)  
-```bash
-cd services/data-collection/exchange-collector
-
-# Install dependencies
-npm install
-
-# Development commands
-npm run dev        # development with auto-reload
-npm run build      # compile TypeScript
-npm run start      # start compiled service
-npm run test       # run tests
-npm run test:watch # test in watch mode
-npm run lint       # ESLint
-npm run format     # Prettier formatting
-npm run type-check # TypeScript type checking
-```
-
-#### Go Services (API Gateway, Blockchain Collector)
+### Go Services (API Gateway, Blockchain Collector)
 ```bash
 # Install dependencies
 go mod download
@@ -102,9 +167,24 @@ air
 
 ## Technology Stack by Service
 
-- **Python Services**: FastAPI, SQLAlchemy, Alembic (migrations), google-cloud-pubsub, asyncpg, Redis
-- **TypeScript Services**: Express.js, ws (WebSocket), @google-cloud/pubsub, winston (logging)
-- **Go Services**: Gin (HTTP), gorilla/websocket, Google Cloud Pub/Sub Go client
+### TypeScript/Node.js Components (npm workspaces)
+- **shared-core**: Configuration management, error handling, monitoring, Pub/Sub client, caching utilities
+- **adapter-base**: Base classes and interfaces for exchange adapters, connection management
+- **binance-adapter**: Binance exchange adapter SDK with WebSocket support and data parsing
+- **exchange-collector**: Data collection service that integrates multiple exchange adapters
+
+### Python Services (FastAPI-based)
+- **manager-service**: Core stateful service - API keys, balances, positions, fund allocation
+- **strategy-service**: Trading strategy execution and portfolio management  
+- **risk-service**: Risk management, position sizing, and compliance checks
+- **execution-service**: Order execution and trade management
+- **auxiliary-collector**: Alternative data collection (news, social sentiment, etc.)
+
+### Go Services (High-performance)
+- **api-gateway**: External API gateway with authentication and rate limiting
+- **blockchain-collector**: On-chain data collection from various blockchain networks
+
+### Infrastructure
 - **Databases**: PostgreSQL (business data), TimescaleDB (time series), Redis (cache/state)
 - **Message Bus**: Google Cloud Pub/Sub (with configurable alternatives)
 - **Monitoring**: Google Cloud Monitoring, Prometheus, Grafana
@@ -131,15 +211,31 @@ alembic revision --autogenerate -m "description"
 redis-cli -h localhost -p 6379
 ```
 
-## Key Directories
+## Project Structure
 
-- `services/core/`: Core business services (Manager, Strategy, Risk, Execution)
-- `services/data-collection/`: Data ingestion services  
-- `services/adapters/`: Exchange trading adapters
-- `services/infrastructure/`: Infrastructure services (API Gateway, Config)
-- `deployment/`: Docker Compose and Kubernetes configurations
-- `docs/`: Architecture and API documentation
-- `experiments/`: Research and experimental code
+### NPM Workspace Organization
+```
+services/
+├── infrastructure/          # Shared TypeScript packages
+│   ├── shared-core/        # @pixiu/shared-core - Core utilities
+│   └── adapter-base/       # @pixiu/adapter-base - Adapter framework
+├── adapters/               # Exchange adapter SDKs
+│   └── binance-adapter/    # @pixiu/binance-adapter - Binance SDK
+├── data-collection/        # Data collection services
+│   ├── exchange-collector/ # @pixiu/exchange-collector - Main collector
+│   ├── blockchain-collector/ # Go-based blockchain data collector
+│   └── auxiliary-collector/  # Python-based auxiliary data collector
+├── core/                   # Core business services (Python)
+│   ├── manager-service/    # Stateful core service
+│   ├── strategy-service/   # Strategy execution
+│   ├── risk-service/       # Risk management
+│   └── execution-service/  # Order execution
+└── infrastructure/
+    └── api-gateway/        # Go-based API gateway
+```
+
+### Test Organization
+Each package contains its own tests in a `tests/` directory alongside `src/`. This follows standard practices where unit tests are co-located with the implementation code they test.
 
 ## Configuration
 
@@ -153,16 +249,40 @@ Development configurations are in `deployment/docker-compose/.env` files.
 
 ## Testing Strategy
 
-- **Unit Tests**: `pytest` for Python, `jest` for TypeScript, `go test` for Go
-- **Integration Tests**: Use testcontainers for database/Pub/Sub integration
-- **Coverage Requirements**: ≥80% for unit tests, ≥60% for integration tests
-- **Test Data**: Use factory patterns for consistent test data generation
+### Test Framework by Language
+- **TypeScript**: Jest with project-specific configurations and shared test utilities
+- **Python**: pytest with coverage reporting and testcontainers for integration
+- **Go**: Built-in `go test` with coverage and verbose modes
+
+### Test Structure and Execution
+- Tests are located in each package's `tests/` directory alongside `src/`
+- Root-level workspace commands run tests across all packages with aggregated reporting
+- Test files include proper cleanup to prevent Jest hanging (global cache cleanup)
+- Mock implementations used for cross-package dependencies during testing
+
+### Important Test Notes
+- All test files that import from `@pixiu/shared-core` must include `globalCache.destroy()` in `afterAll()` to prevent Jest from hanging
+- Use `--passWithNoTests` flag for packages without tests to avoid build failures
+- TypeScript mock compatibility requires `as any` type assertions for complex interface mocking
 
 ## Common Patterns
 
+### Service Communication
 - Services communicate via Google Cloud Pub/Sub topics following naming convention: `{domain}-{type}-{source}`
-- All services expose health endpoints at `/health`
-- Metrics exposed at `/metrics` for Prometheus scraping, and integrated with Google Cloud Monitoring
+- Infrastructure packages provide unified message bus abstraction with configurable backends
+
+### Monitoring and Health
+- All services expose health endpoints at `/health`  
+- Metrics exposed at `/metrics` for Prometheus scraping, integrated with Google Cloud Monitoring
 - Structured logging using appropriate libraries per language, with Google Cloud Logging integration
-- Error handling with proper error types and status codes
-- Configuration validation on service startup
+
+### Error Handling
+- Centralized error handling through `@pixiu/shared-core` BaseErrorHandler
+- Proper error categorization with recovery strategies (retry, escalate, ignore)
+- Circuit breaker patterns for external service interactions
+
+### Adapter Pattern Implementation
+- Exchange adapters inherit from BaseAdapter in `@pixiu/adapter-base`
+- Adapters are SDKs integrated into exchange-collector, not standalone services
+- Configuration-driven adapter activation through service config files
+- Event-driven architecture with status change notifications and data streaming

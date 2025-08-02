@@ -4,12 +4,15 @@
  */
 
 import { createHmac } from 'crypto';
+import WebSocket from 'ws';
 import {
   BaseAdapter,
   BaseConnectionManager,
   AdapterConfig,
+  AdapterStatus,
   DataType,
   SubscriptionInfo,
+  SubscriptionConfig,
   MarketData,
   ConnectionManager,
   TradeData,
@@ -19,6 +22,8 @@ import {
 } from '@pixiu/adapter-base';
 
 export interface BinanceConfig extends AdapterConfig {
+  /** 订阅配置 */
+  subscription?: SubscriptionConfig;
   /** Binance特定配置 */
   binance?: {
     /** 是否使用测试网 */
@@ -35,6 +40,12 @@ export class BinanceAdapter extends BaseAdapter {
   
   private streamId = 0;
   private streamMap = new Map<string, string>(); // subscription -> stream name
+  private activeStreams = new Set<string>(); // 活跃的流名称
+  private combinedStreamUrl?: string; // 组合流URL
+  private ws?: WebSocket; // 直接WebSocket连接
+  private reconnectTimer?: NodeJS.Timeout;
+  private binanceReconnectAttempts = 0;
+  private maxReconnectAttempts = 5;
 
   /**
    * 创建连接管理器
@@ -44,6 +55,188 @@ export class BinanceAdapter extends BaseAdapter {
   }
 
   /**
+   * 初始化方法（完全重写以使用直接WebSocket连接）
+   */
+  async initialize(config: BinanceConfig): Promise<void> {
+    this.config = config;
+    
+    // 预处理订阅配置，构建流URL
+    if (config.subscription?.symbols && config.subscription?.dataTypes) {
+      // 为所有符号和数据类型预创建流
+      for (const symbol of config.subscription.symbols) {
+        for (const dataType of config.subscription.dataTypes) {
+          const streamName = this.buildStreamName(symbol, dataType);
+          this.activeStreams.add(streamName);
+        }
+      }
+      
+      // 构建初始组合流URL
+      if (this.activeStreams.size > 0) {
+        const streamArray = Array.from(this.activeStreams);
+        this.combinedStreamUrl = this.buildCombinedStreamUrl(streamArray);
+      }
+    }
+    
+    // 基类会自动初始化指标
+    
+    this.emit('initialized');
+  }
+
+  /**
+   * 连接方法（完全重写以使用直接WebSocket）
+   */
+  async connect(): Promise<void> {
+    if (this.status === AdapterStatus.CONNECTED) {
+      return;
+    }
+
+    if (!this.combinedStreamUrl) {
+      throw new Error('No streams configured for connection');
+    }
+
+    this.status = AdapterStatus.CONNECTING;
+    this.binanceReconnectAttempts = 0;
+    
+    return this.connectWebSocket();
+  }
+
+  /**
+   * 直接WebSocket连接（参考实验代码）
+   */
+  private async connectWebSocket(): Promise<void> {
+    return new Promise((resolve, reject) => {
+      if (!this.combinedStreamUrl) {
+        reject(new Error('No WebSocket URL configured'));
+        return;
+      }
+
+      try {
+        this.ws = new WebSocket(this.combinedStreamUrl);
+
+        // 连接超时
+        const timeout = setTimeout(() => {
+          this.ws?.terminate();
+          reject(new Error('Connection timeout'));
+        }, this.config?.connection?.timeout || 10000);
+
+        this.ws.on('open', () => {
+          clearTimeout(timeout);
+          this.status = AdapterStatus.CONNECTED;
+          this.binanceReconnectAttempts = 0;
+          this.emit('connected');
+          resolve();
+        });
+
+        this.ws.on('message', (data: WebSocket.Data) => {
+          this.handleWebSocketMessage(data);
+        });
+
+        this.ws.on('error', (error) => {
+          clearTimeout(timeout);
+          this.emit('error', error);
+          this.scheduleReconnect();
+          reject(error);
+        });
+
+        this.ws.on('close', (code, reason) => {
+          clearTimeout(timeout);
+          this.status = AdapterStatus.DISCONNECTED;
+          this.emit('disconnected', reason.toString());
+          
+          // 只有在非正常关闭时才重连
+          if (code !== 1000 && this.status !== AdapterStatus.DISCONNECTED) {
+            this.scheduleReconnect();
+          }
+        });
+
+        // Ping/Pong处理（参考实验代码）
+        this.ws.on('ping', () => {
+          this.ws?.pong();
+        });
+
+      } catch (error) {
+        reject(error);
+      }
+    });
+  }
+
+  /**
+   * 处理WebSocket消息（参考实验代码）
+   */
+  private handleWebSocketMessage(data: WebSocket.Data): void {
+    try {
+      const messageSize = Buffer.byteLength(data.toString());
+      const message = JSON.parse(data.toString());
+      
+      // 更新指标
+      this.updateMetrics(messageSize);
+      
+      // 解析市场数据
+      const marketData = this.parseMessage(message);
+      if (marketData) {
+        this.emit('data', marketData);
+      }
+    } catch (error) {
+      this.emit('error', error);
+    }
+  }
+
+  /**
+   * 更新适配器指标
+   */
+  private updateMetrics(messageSize: number = 0): void {
+    if (this.metrics) {
+      this.metrics.messagesReceived++;
+      this.metrics.status = this.status;
+    }
+  }
+
+  /**
+   * 调度重连
+   */
+  private scheduleReconnect(): void {
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+    }
+
+    if (this.binanceReconnectAttempts >= this.maxReconnectAttempts) {
+      this.status = AdapterStatus.ERROR;
+      this.emit('error', new Error(`Max reconnect attempts (${this.maxReconnectAttempts}) exceeded`));
+      return;
+    }
+
+    const delay = Math.min(1000 * Math.pow(2, this.binanceReconnectAttempts), 30000); // 指数退避，最大30秒
+    this.binanceReconnectAttempts++;
+    
+    this.reconnectTimer = setTimeout(() => {
+      this.connectWebSocket().catch(error => {
+        this.emit('error', error);
+      });
+    }, delay);
+  }
+
+  /**
+   * 断开连接
+   */
+  async disconnect(): Promise<void> {
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = undefined;
+    }
+
+    if (this.ws) {
+      this.ws.close(1000, 'Normal closure');
+      this.ws = undefined;
+    }
+
+    this.status = AdapterStatus.DISCONNECTED;
+    this.emit('disconnected', 'Manual disconnect');
+  }
+
+
+
+
+  /**
    * 创建订阅
    */
   protected async createSubscription(symbol: string, dataType: DataType): Promise<SubscriptionInfo> {
@@ -51,13 +244,10 @@ export class BinanceAdapter extends BaseAdapter {
     const streamName = this.buildStreamName(symbol, dataType);
     
     this.streamMap.set(subscriptionId, streamName);
+    this.activeStreams.add(streamName);
     
-    // 发送订阅消息到Binance WebSocket
-    await this.connectionManager?.send({
-      method: 'SUBSCRIBE',
-      params: [streamName],
-      id: this.streamId
-    });
+    // 重新建立包含新流的连接
+    await this.reconnectWithStreams();
 
     return {
       id: subscriptionId,
@@ -74,13 +264,53 @@ export class BinanceAdapter extends BaseAdapter {
   protected async removeSubscription(subscription: SubscriptionInfo): Promise<void> {
     const streamName = this.streamMap.get(subscription.id);
     if (streamName) {
-      await this.connectionManager?.send({
-        method: 'UNSUBSCRIBE',
-        params: [streamName],
-        id: ++this.streamId
-      });
-      
       this.streamMap.delete(subscription.id);
+      this.activeStreams.delete(streamName);
+      
+      // 重新建立不包含该流的连接
+      await this.reconnectWithStreams();
+    }
+  }
+
+  /**
+   * 重新连接包含所有活跃流的WebSocket
+   */
+  private async reconnectWithStreams(): Promise<void> {
+    if (this.activeStreams.size === 0) {
+      return;
+    }
+
+    // 构建组合流URL
+    const streamArray = Array.from(this.activeStreams);
+    this.combinedStreamUrl = this.buildCombinedStreamUrl(streamArray);
+    
+    // 断开现有连接
+    if (this.connectionManager?.isConnected()) {
+      await this.connectionManager.disconnect();
+    }
+    
+    // 使用新的URL重新连接
+    const config = this.getConfig() as BinanceConfig;
+    const newConfig = {
+      ...config.connection,
+      url: this.combinedStreamUrl,
+      heartbeatTimeout: config.connection.heartbeatInterval * 2
+    };
+    
+    await this.connectionManager?.connect(newConfig);
+  }
+
+  /**
+   * 构建组合流URL
+   */
+  private buildCombinedStreamUrl(streams: string[]): string {
+    const baseUrl = this.getConfig().endpoints?.ws?.replace('/ws', '') || 'wss://stream.binance.com:9443';
+    if (streams.length === 1) {
+      return `${baseUrl}/ws/${streams[0]}`;
+    } else {
+      // 组合流格式
+      const streamParam = streams.join('/');
+      return `${baseUrl}/stream?streams=${streamParam}`;
     }
   }
 
@@ -89,16 +319,12 @@ export class BinanceAdapter extends BaseAdapter {
    */
   protected parseMessage(message: any): MarketData | null {
     try {
-      // 处理订阅确认消息
-      if (message.result === null && message.id) {
-        return null;
-      }
-
-      // 处理数据流消息
+      // Binance Combined Stream 格式: {stream: string, data: object}
       if (message.stream && message.data) {
-        return this.parseStreamMessage(message);
+        return this.parseCombinedStreamMessage(message);
       }
 
+      // 忽略其他消息类型（ping/pong等）
       return null;
     } catch (error) {
       // 解析错误会在基类中处理
@@ -107,31 +333,38 @@ export class BinanceAdapter extends BaseAdapter {
   }
 
   /**
-   * 解析数据流消息
+   * 解析Binance Combined Stream消息
    */
-  private parseStreamMessage(message: any): MarketData | null {
+  private parseCombinedStreamMessage(message: any): MarketData | null {
     const { stream, data } = message;
-    const [symbolPart, typePart] = stream.split('@');
-    const symbol = this.normalizeSymbol(symbolPart);
+    
+    // 根据data.e字段识别事件类型（参考实验代码）
+    const eventType = data.e;
+    const symbol = this.normalizeSymbol(data.s);
     
     let dataType: DataType;
     let parsedData: any;
 
-    if (typePart === 'trade') {
-      dataType = DataType.TRADE;
-      parsedData = this.parseTradeData(data);
-    } else if (typePart === 'ticker') {
-      dataType = DataType.TICKER;
-      parsedData = this.parseTickerData(data);
-    } else if (typePart.startsWith('kline_')) {
-      const interval = typePart.replace('kline_', '');
-      dataType = this.mapInterval(interval);
-      parsedData = this.parseKlineData(data.k);
-    } else if (typePart.endsWith('@depth')) {
-      dataType = DataType.DEPTH;
-      parsedData = this.parseDepthData(data);
-    } else {
-      return null;
+    switch (eventType) {
+      case 'trade':
+        dataType = DataType.TRADE;
+        parsedData = this.parseTradeData(data);
+        break;
+      
+      case 'kline':
+        const interval = data.k.i; // 从kline数据中获取间隔
+        dataType = this.mapInterval(interval);
+        parsedData = this.parseKlineData(data.k);
+        break;
+      
+      case '24hrTicker':
+        dataType = DataType.TICKER;
+        parsedData = this.parseTickerData(data);
+        break;
+      
+      default:
+        // 未知事件类型，忽略
+        return null;
     }
 
     return {
@@ -149,26 +382,26 @@ export class BinanceAdapter extends BaseAdapter {
    */
   private parseTradeData(data: any): TradeData {
     return {
-      id: data.t.toString(),
-      price: parseFloat(data.p),
-      quantity: parseFloat(data.q),
-      side: data.m ? 'sell' : 'buy', // m=true表示买方是maker
-      timestamp: data.T
+      id: data.t.toString(),           // 交易ID
+      price: parseFloat(data.p),       // 价格
+      quantity: parseFloat(data.q),    // 数量
+      side: data.m ? 'sell' : 'buy',   // m=true表示买方是maker，所以是卖单
+      timestamp: data.T                // 交易时间
     };
   }
 
   /**
-   * 解析行情数据
+   * 解析24小时ticker数据
    */
   private parseTickerData(data: any): TickerData {
     return {
-      lastPrice: parseFloat(data.c),
-      bidPrice: parseFloat(data.b),
-      askPrice: parseFloat(data.a),
-      change24h: parseFloat(data.P),
-      volume24h: parseFloat(data.v),
-      high24h: parseFloat(data.h),
-      low24h: parseFloat(data.l)
+      lastPrice: parseFloat(data.c),       // 最新价格
+      bidPrice: parseFloat(data.b),        // 最佳买价
+      askPrice: parseFloat(data.a),        // 最佳卖价
+      change24h: parseFloat(data.P),       // 24小时价格变化百分比
+      volume24h: parseFloat(data.v),       // 24小时成交量
+      high24h: parseFloat(data.h),         // 24小时最高价
+      low24h: parseFloat(data.l)           // 24小时最低价
     };
   }
 
@@ -209,6 +442,7 @@ export class BinanceAdapter extends BaseAdapter {
       case DataType.TRADE:
         return `${normalizedSymbol}@trade`;
       case DataType.TICKER:
+        // Binance使用24hrTicker而不是ticker
         return `${normalizedSymbol}@ticker`;
       case DataType.KLINE_1M:
         return `${normalizedSymbol}@kline_1m`;
@@ -298,7 +532,7 @@ export function createBinanceAdapter(config?: BinanceConfig): BinanceAdapter {
       exchange: 'binance',
       endpoints: {
         ws: config.binance?.testnet 
-          ? 'wss://testnet.binance.vision/ws-api/v3'
+          ? 'wss://testnet.binance.vision/ws'
           : 'wss://stream.binance.com:9443/ws',
         rest: config.binance?.testnet
           ? 'https://testnet.binance.vision/api'

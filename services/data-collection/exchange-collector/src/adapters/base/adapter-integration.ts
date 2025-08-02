@@ -336,17 +336,37 @@ export abstract class AdapterIntegration extends EventEmitter {
     }
 
     try {
-      const batchResult = await this.pubsubClient.publishBatch(
-        this.buildTopicName('market-data'),
-        messages.map(data => ({ data, options: { attributes: this.buildMessageAttributes(data) } }))
-      );
+      // 按数据类型分组发布
+      const messagesByType = new Map<string, MarketData[]>();
       
-      this.metrics.messagesPublished += batchResult.successCount;
-      this.metrics.publishErrors += batchResult.failureCount;
+      for (const message of messages) {
+        const topicName = this.buildTopicNameFromData(message);
+        if (!messagesByType.has(topicName)) {
+          messagesByType.set(topicName, []);
+        }
+        messagesByType.get(topicName)!.push(message);
+      }
+
+      // 分别发布每种数据类型
+      let totalSuccessCount = 0;
+      let totalFailureCount = 0;
+      
+      for (const [topicName, typeMessages] of messagesByType) {
+        const batchResult = await this.pubsubClient.publishBatch(
+          topicName,
+          typeMessages.map(data => ({ data, options: { attributes: this.buildMessageAttributes(data) } }))
+        );
+        
+        totalSuccessCount += batchResult.successCount;
+        totalFailureCount += batchResult.failureCount;
+      }
+      
+      this.metrics.messagesPublished += totalSuccessCount;
+      this.metrics.publishErrors += totalFailureCount;
       
       this.emit('batchPublished', {
-        successCount: batchResult.successCount,
-        failureCount: batchResult.failureCount
+        successCount: totalSuccessCount,
+        failureCount: totalFailureCount
       });
     } catch (error) {
       this.metrics.publishErrors += messages.length;
@@ -359,7 +379,7 @@ export abstract class AdapterIntegration extends EventEmitter {
    */
   private async publishMarketData(data: MarketData): Promise<void> {
     try {
-      const topicName = this.buildTopicName('market-data');
+      const topicName = this.buildTopicNameFromData(data);
       const messageId = await this.pubsubClient.publish(topicName, data, {
         attributes: this.buildMessageAttributes(data)
       });
@@ -372,11 +392,36 @@ export abstract class AdapterIntegration extends EventEmitter {
     }
   }
 
+
   /**
-   * 构建主题名称
+   * 根据市场数据构建主题名称
    */
-  private buildTopicName(type: string): string {
-    return `${this.config.publishConfig.topicPrefix}-${type}-${this.getExchangeName()}`;
+  private buildTopicNameFromData(data: MarketData): string {
+    const dataTypeName = this.getDataTypeName(data.type);
+    return `${this.config.publishConfig.topicPrefix}-${dataTypeName}-${this.getExchangeName()}`;
+  }
+
+  /**
+   * 获取数据类型名称
+   */
+  private getDataTypeName(dataType: string): string {
+    // 将枚举值转换为topic名称
+    switch (dataType) {
+      case 'trade':
+        return 'trade';
+      case 'ticker':
+        return 'ticker';
+      case 'kline_1m':
+      case 'kline_5m':
+      case 'kline_1h':
+      case 'kline_1d':
+        return 'kline';
+      case 'depth':
+      case 'orderbook':
+        return 'depth';
+      default:
+        return dataType.toLowerCase();
+    }
   }
 
   /**
