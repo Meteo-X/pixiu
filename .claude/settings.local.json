@@ -25,7 +25,14 @@
       "Bash(npx tsc:*)",
       "mcp__ide__getDiagnostics",
       "Bash(find:*)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(npm test:*)",
+      "Bash(node:*)",
+      "Bash(npm install)",
+      "Bash(npm run test:*)",
+      "Bash(npm run ts-node:*)",
+      "Bash(export GOOGLE_CLOUD_PROJECT=pixiu-trading-dev)",
+      "Bash(grep:*)"
     ],
     "deny": []
   }

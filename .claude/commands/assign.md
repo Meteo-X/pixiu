@@ -33,4 +33,5 @@ The command will:
 - Mark the task as in_progress
 - Display task details and context
 - Ask to start the task, or other things to do
+- Choose the proper sub agents to complete the task
 - Create unit tests and run tests to verify the implementation
