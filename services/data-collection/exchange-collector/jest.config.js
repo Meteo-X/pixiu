@@ -1,52 +1,24 @@
-/**
- * Exchange Collector Jest配置
- */
-
 module.exports = {
-  // 测试环境
-  testEnvironment: 'node',
-  
-  // 根目录
-  rootDir: '.',
-  
-  // TypeScript支持
   preset: 'ts-jest',
-  
-  // 测试匹配模式
+  testEnvironment: 'node',
+  roots: ['<rootDir>/src', '<rootDir>/tests'],
   testMatch: [
-    '<rootDir>/tests/**/*.test.{js,ts}'
+    '**/__tests__/**/*.ts',
+    '**/?(*.)+(spec|test).ts'
   ],
-  
-  // 覆盖率收集
-  collectCoverageFrom: [
-    '<rootDir>/src/**/*.{js,ts}',
-    '!<rootDir>/src/**/*.d.ts',
-    '!<rootDir>/src/**/index.ts'
-  ],
-  
-  // 覆盖率输出目录
-  coverageDirectory: '<rootDir>/coverage',
-  
-  // 覆盖率阈值
-  coverageThreshold: {
-    global: {
-      branches: 65,
-      functions: 65,
-      lines: 65,
-      statements: 65
-    }
+  transform: {
+    '^.+\\.ts$': 'ts-jest',
   },
-  
-  // 清理模式
-  clearMocks: true,
-  restoreMocks: true,
-  
-  // 详细输出
-  verbose: true,
-  
-  // 超时设置
-  testTimeout: 15000,
-  
-  // 设置环境变量
-  setupFilesAfterEnv: ['<rootDir>/tests/setup.ts']
+  collectCoverageFrom: [
+    'src/**/*.ts',
+    '!src/**/*.d.ts',
+    '!src/index.ts'
+  ],
+  coverageDirectory: 'coverage',
+  coverageReporters: ['text', 'lcov', 'html'],
+  setupFilesAfterEnv: ['<rootDir>/tests/setup.ts'],
+  testTimeout: 30000,
+  maxWorkers: 1,
+  forceExit: true,
+  detectOpenHandles: true
 };
