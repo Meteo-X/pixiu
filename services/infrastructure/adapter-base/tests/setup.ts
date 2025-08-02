@@ -1,5 +1,5 @@
 /**
- * Binance Adapter测试设置
+ * Adapter Base测试设置
  */
 
 // 设置测试超时
@@ -17,18 +17,6 @@ jest.mock('ws', () => {
     CLOSED: 3
   }));
 });
-
-// Mock axios
-jest.mock('axios', () => ({
-  create: jest.fn(() => ({
-    get: jest.fn().mockResolvedValue({ data: {} }),
-    post: jest.fn().mockResolvedValue({ data: {} }),
-    put: jest.fn().mockResolvedValue({ data: {} }),
-    delete: jest.fn().mockResolvedValue({ data: {} })
-  })),
-  get: jest.fn().mockResolvedValue({ data: {} }),
-  post: jest.fn().mockResolvedValue({ data: {} })
-}));
 
 // 设置测试环境变量
 process.env.NODE_ENV = 'test';

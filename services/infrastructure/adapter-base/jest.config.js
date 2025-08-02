@@ -1,5 +1,5 @@
 /**
- * Binance Adapter Jest配置
+ * Adapter Base Jest配置
  */
 
 module.exports = {
@@ -30,10 +30,10 @@ module.exports = {
   // 覆盖率阈值
   coverageThreshold: {
     global: {
-      branches: 70,
-      functions: 70,
-      lines: 70,
-      statements: 70
+      branches: 75,
+      functions: 75,
+      lines: 75,
+      statements: 75
     }
   },
   

@@ -1,63 +1,67 @@
-# Exchange Collector Development Configuration
+# Exchange Collector开发环境配置
+
+name: exchange-collector
+version: 1.0.0
+environment: development
 
 server:
   port: 8080
-  host: "0.0.0.0"
+  host: '0.0.0.0'
+  enableCors: true
 
-exchanges:
+adapters:
   binance:
-    wsEndpoint: "wss://stream.binance.com:9443"
-    symbols:
-      - "BTC/USDT"
-      - "ETH/USDT" 
-      - "BNB/USDT"
-    dataTypes:
-      - "trade"
-      - "kline_1m"
-      - "kline_5m"
-    connections:
-      max: 3
-      streamsPerConnection: 1000
-
-googleCloud:
-  projectId: "pixiu-trading-dev"
-  pubsub:
     enabled: true
-    emulatorHost: "localhost:8085"
-    topicPrefix: "market-data"
-    publishSettings:
-      enableMessageOrdering: false
-      batchSettings:
-        maxMessages: 100
-        maxBytes: 1048576
-        maxLatency: 100
-      retrySettings:
+    config:
+      endpoints:
+        ws: 'wss://stream.binance.com:9443/ws'
+        rest: 'https://api.binance.com/api'
+      connection:
+        timeout: 10000
         maxRetries: 3
-        initialRetryDelay: 100
-        maxRetryDelay: 60000
+        retryInterval: 5000
+        heartbeatInterval: 30000
+      binance:
+        testnet: false
+        enableCompression: true
+    subscription:
+      symbols:
+        - 'BTC/USDT'
+        - 'ETH/USDT'
+        - 'ADA/USDT'
+        - 'DOT/USDT'
+      dataTypes:
+        - 'trade'
+        - 'ticker'
+        - 'kline_1m'
+      enableAllTickers: false
+
+pubsub:
+  projectId: 'pixiu-trading-dev'
+  useEmulator: true
+  emulatorHost: 'localhost:8085'
+  topicPrefix: 'market-data'
+  publishSettings:
+    enableBatching: true
+    batchSize: 100
+    batchTimeout: 1000
+    enableMessageOrdering: false
+    retrySettings:
+      maxRetries: 3
+      initialRetryDelay: 1000
+      maxRetryDelay: 60000
 
 monitoring:
+  enableMetrics: true
+  enableHealthCheck: true
+  metricsInterval: 30000
+  healthCheckInterval: 30000
   prometheus:
     enabled: true
     port: 9090
-    path: "/metrics"
-  healthCheck:
-    interval: 30000
-    timeout: 5000
+    path: '/metrics'
 
 logging:
-  level: "debug"
-  format: "simple"
-  file:
-    enabled: true
-    path: "./logs/exchange-collector.log"
-    maxSize: "100m"
-    maxFiles: 3
-
-connection:
-  maxConnectionsPerExchange: 5
-  maxStreamsPerConnection: 1000
-  reconnectDelay: 1000
-  maxReconnectDelay: 30000
-  heartbeatInterval: 30000
-  pingTimeout: 10000
+  level: 'debug'
+  format: 'json'
+  output: 'console'

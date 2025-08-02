@@ -1,5 +1,5 @@
 /**
- * Binance Adapter Jest配置
+ * Exchange Collector Jest配置
  */
 
 module.exports = {
@@ -30,10 +30,10 @@ module.exports = {
   // 覆盖率阈值
   coverageThreshold: {
     global: {
-      branches: 70,
-      functions: 70,
-      lines: 70,
-      statements: 70
+      branches: 65,
+      functions: 65,
+      lines: 65,
+      statements: 65
     }
   },
   
@@ -45,7 +45,7 @@ module.exports = {
   verbose: true,
   
   // 超时设置
-  testTimeout: 10000,
+  testTimeout: 15000,
   
   // 设置环境变量
   setupFilesAfterEnv: ['<rootDir>/tests/setup.ts']

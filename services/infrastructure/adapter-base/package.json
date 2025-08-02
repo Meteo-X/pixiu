@@ -1,7 +1,7 @@
 {
-  "name": "@pixiu/binance-adapter",
+  "name": "@pixiu/adapter-base",
   "version": "1.0.0",
-  "description": "Binance交易所适配器SDK",
+  "description": "Pixiu交易适配器基础框架",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
@@ -13,14 +13,15 @@
     "lint": "eslint src/**/*.ts",
     "format": "prettier --write src/**/*.ts"
   },
-  "keywords": ["binance", "trading", "adapter", "sdk", "cryptocurrency"],
+  "keywords": ["trading", "adapter", "exchange", "framework"],
   "author": "Pixiu Team",
   "license": "MIT",
   "dependencies": {
     "@pixiu/shared-core": "1.0.0",
-    "@pixiu/adapter-base": "1.0.0",
+    "eventemitter3": "^5.0.1",
     "ws": "^8.14.2",
-    "crypto": "^1.0.1"
+    "axios": "^1.6.0",
+    "joi": "^17.11.0"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",
