@@ -1,0 +1,46 @@
+# Invalid configuration for testing error handling
+name: exchange-collector-invalid
+version: 1.0.0
+environment: test
+
+server:
+  port: "invalid_port"  # Invalid port type
+  host: 127.0.0.1
+  enableCors: true
+
+adapters:
+  binance:
+    enabled: true
+    config:
+      endpoints:
+        ws: "invalid_websocket_url"  # Invalid WebSocket URL
+        rest: "invalid_rest_url"     # Invalid REST URL
+      connection:
+        timeout: -1000               # Invalid negative timeout
+        maxRetries: "invalid"        # Invalid retry count
+        retryInterval: 0             # Invalid retry interval
+        heartbeatInterval: -5000     # Invalid heartbeat interval
+    subscription:
+      symbols: []                    # Empty symbols array
+      dataTypes: ["invalid_type"]   # Invalid data type
+
+pubsub:
+  projectId: ""                      # Empty project ID
+  useEmulator: true
+  emulatorHost: ""                   # Empty emulator host
+  topicPrefix: ""                    # Empty topic prefix
+  publishSettings:
+    enableBatching: "invalid"        # Invalid boolean
+    batchSize: 0                     # Invalid batch size
+    batchTimeout: -100               # Invalid timeout
+
+monitoring:
+  enableMetrics: "not_boolean"       # Invalid boolean
+  enableHealthCheck: true
+  metricsInterval: 0                 # Invalid interval
+  healthCheckInterval: -1000         # Invalid interval
+
+logging:
+  level: "invalid_level"             # Invalid log level
+  format: "invalid_format"           # Invalid format
+  output: "invalid_output"           # Invalid output

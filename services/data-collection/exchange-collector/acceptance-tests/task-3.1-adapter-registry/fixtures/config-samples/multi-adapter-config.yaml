@@ -1,0 +1,85 @@
+# Multi-adapter configuration for testing
+name: exchange-collector-multi
+version: 1.0.0
+environment: test
+
+server:
+  port: 18082
+  host: 127.0.0.1
+  enableCors: true
+
+adapters:
+  binance:
+    enabled: true
+    config:
+      endpoints:
+        ws: wss://testnet.binance.vision/ws
+        rest: https://testnet.binance.vision/api
+      connection:
+        timeout: 5000
+        maxRetries: 2
+        retryInterval: 2000
+        heartbeatInterval: 15000
+      binance:
+        testnet: true
+        enableCompression: false
+    subscription:
+      symbols:
+        - BTCUSDT
+      dataTypes:
+        - trade
+
+  mock1:
+    enabled: true
+    config:
+      endpoints:
+        ws: ws://localhost:9997/mock1
+        rest: http://localhost:9997/api
+      connection:
+        timeout: 3000
+        maxRetries: 1
+        retryInterval: 1000
+        heartbeatInterval: 10000
+    subscription:
+      symbols:
+        - TEST1USDT
+      dataTypes:
+        - trade
+
+  mock2:
+    enabled: false
+    config:
+      endpoints:
+        ws: ws://localhost:9998/mock2
+        rest: http://localhost:9998/api
+      connection:
+        timeout: 3000
+        maxRetries: 1
+        retryInterval: 1000
+        heartbeatInterval: 10000
+    subscription:
+      symbols:
+        - TEST2USDT
+      dataTypes:
+        - ticker
+
+pubsub:
+  projectId: pixiu-test-multi
+  useEmulator: true
+  emulatorHost: localhost:8085
+  topicPrefix: multi-test-data
+  publishSettings:
+    enableBatching: false
+    batchSize: 1
+    batchTimeout: 100
+
+monitoring:
+  enableMetrics: true
+  enableHealthCheck: true
+  metricsInterval: 3000
+  healthCheckInterval: 3000
+
+logging:
+  level: debug
+  format: json
+  output: console

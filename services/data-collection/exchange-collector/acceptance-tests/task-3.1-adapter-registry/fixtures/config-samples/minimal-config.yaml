@@ -1,0 +1,48 @@
+# Minimal configuration for testing
+name: exchange-collector-minimal
+version: 1.0.0
+environment: test
+
+server:
+  port: 18081
+  host: 127.0.0.1
+  enableCors: false
+
+adapters:
+  binance:
+    enabled: false
+    config:
+      endpoints:
+        ws: wss://stream.binance.com:9443/ws
+        rest: https://api.binance.com/api
+      connection:
+        timeout: 10000
+        maxRetries: 3
+        retryInterval: 5000
+        heartbeatInterval: 30000
+    subscription:
+      symbols:
+        - BTCUSDT
+      dataTypes:
+        - trade
+
+pubsub:
+  projectId: pixiu-test
+  useEmulator: true
+  emulatorHost: localhost:8085
+  topicPrefix: test-data
+  publishSettings:
+    enableBatching: false
+    batchSize: 1
+    batchTimeout: 100
+
+monitoring:
+  enableMetrics: false
+  enableHealthCheck: true
+  metricsInterval: 10000
+  healthCheckInterval: 10000
+
+logging:
+  level: info
+  format: json
+  output: console

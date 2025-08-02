@@ -1,0 +1,85 @@
+# Test configuration for adapter registry tests
+name: exchange-collector-test
+version: 1.0.0
+environment: test
+
+server:
+  port: 18080
+  host: 127.0.0.1
+  enableCors: true
+
+# Test adapter configurations
+adapters:
+  binance:
+    enabled: true
+    config:
+      endpoints:
+        ws: wss://testnet.binance.vision/ws
+        rest: https://testnet.binance.vision/api
+      connection:
+        timeout: 5000
+        maxRetries: 2
+        retryInterval: 2000
+        heartbeatInterval: 15000
+      binance:
+        testnet: true
+        enableCompression: false
+    subscription:
+      symbols:
+        - BTCUSDT
+        - ETHUSDT
+      dataTypes:
+        - trade
+        - ticker
+      enableAllTickers: false
+
+  # Mock adapter for testing
+  mock:
+    enabled: true
+    config:
+      endpoints:
+        ws: ws://localhost:9999/mock
+        rest: http://localhost:9999/api
+      connection:
+        timeout: 3000
+        maxRetries: 1
+        retryInterval: 1000
+        heartbeatInterval: 10000
+    subscription:
+      symbols:
+        - TESTUSDT
+      dataTypes:
+        - trade
+
+# Pub/Sub configuration for testing
+pubsub:
+  projectId: pixiu-test
+  useEmulator: true
+  emulatorHost: localhost:8085
+  topicPrefix: test-market-data
+  publishSettings:
+    enableBatching: false
+    batchSize: 10
+    batchTimeout: 500
+    enableMessageOrdering: false
+    retrySettings:
+      maxRetries: 1
+      initialRetryDelay: 500
+      maxRetryDelay: 5000
+
+# Monitoring configuration for testing
+monitoring:
+  enableMetrics: true
+  enableHealthCheck: true
+  metricsInterval: 5000
+  healthCheckInterval: 5000
+  prometheus:
+    enabled: true
+    port: 19090
+    path: /metrics
+
+# Logging configuration for testing
+logging:
+  level: debug
+  format: json
+  output: console
