@@ -259,9 +259,15 @@ export abstract class AdapterIntegration extends EventEmitter {
       this.metrics.messagesProcessed++;
       this.metrics.lastActivity = Date.now();
       
+      // 添加调试日志（每100条消息记录一次）
+      if (this.metrics.messagesProcessed % 100 === 0) {
+        this.monitor.log('debug', `Processed ${this.metrics.messagesProcessed} messages, published ${this.metrics.messagesPublished}`);
+      }
+      
       // 数据质量检查
       if (!this.validateMarketData(marketData)) {
         this.metrics.processingErrors++;
+        this.monitor.log('warn', `Invalid market data: ${JSON.stringify(marketData)}`);
         return;
       }
 
@@ -282,6 +288,7 @@ export abstract class AdapterIntegration extends EventEmitter {
       this.emit('dataProcessed', normalizedData);
     } catch (error) {
       this.metrics.processingErrors++;
+      this.monitor.log('error', `Error processing market data: ${error}`);
       await this.handleError(error as Error, 'processMarketData');
     }
   }
@@ -351,18 +358,29 @@ export abstract class AdapterIntegration extends EventEmitter {
       let totalSuccessCount = 0;
       let totalFailureCount = 0;
       
+      this.monitor.log('debug', `Publishing batch: ${messages.length} messages to ${messagesByType.size} topics`);
+      
       for (const [topicName, typeMessages] of messagesByType) {
-        const batchResult = await this.pubsubClient.publishBatch(
-          topicName,
-          typeMessages.map(data => ({ data, options: { attributes: this.buildMessageAttributes(data) } }))
-        );
-        
-        totalSuccessCount += batchResult.successCount;
-        totalFailureCount += batchResult.failureCount;
+        try {
+          const batchResult = await this.pubsubClient.publishBatch(
+            topicName,
+            typeMessages.map(data => ({ data, options: { attributes: this.buildMessageAttributes(data) } }))
+          );
+          
+          totalSuccessCount += batchResult.successCount;
+          totalFailureCount += batchResult.failureCount;
+          
+          this.monitor.log('debug', `Published to ${topicName}: ${batchResult.successCount} success, ${batchResult.failureCount} failures`);
+        } catch (topicError) {
+          this.monitor.log('error', `Failed to publish to topic ${topicName}: ${topicError}`);
+          totalFailureCount += typeMessages.length;
+        }
       }
       
       this.metrics.messagesPublished += totalSuccessCount;
       this.metrics.publishErrors += totalFailureCount;
+      
+      this.monitor.log('debug', `Batch published: ${totalSuccessCount} success, ${totalFailureCount} failures. Total published: ${this.metrics.messagesPublished}`);
       
       this.emit('batchPublished', {
         successCount: totalSuccessCount,
@@ -370,6 +388,7 @@ export abstract class AdapterIntegration extends EventEmitter {
       });
     } catch (error) {
       this.metrics.publishErrors += messages.length;
+      this.monitor.log('error', `Error in flushMessageBuffer: ${error}`);
       await this.handleError(error as Error, 'flushMessageBuffer');
     }
   }

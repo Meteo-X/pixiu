@@ -59,5 +59,12 @@ console.warn = () => {
   return;
 };
 
+// 清理全局缓存以确保Jest正常退出
+import { globalCache } from '@pixiu/shared-core';
+
+afterAll(() => {
+  globalCache.destroy();
+});
+
 // 导出以使此文件成为模块
 export {};

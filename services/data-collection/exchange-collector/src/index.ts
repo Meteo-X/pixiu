@@ -12,6 +12,7 @@ import cors = require('cors');
 import { createHealthRouter } from './api/health';
 import { createMetricsRouter } from './api/metrics';
 import { createAdapterRouter } from './api/adapters';
+import { StatsReporter } from './monitoring/stats-reporter';
 
 /**
  * Exchange Collector 服务类
@@ -23,6 +24,7 @@ export class ExchangeCollectorService {
   private pubsubClient!: PubSubClientImpl;
   private monitor!: BaseMonitor;
   private errorHandler!: BaseErrorHandler;
+  private statsReporter!: StatsReporter;
   private isShuttingDown = false;
 
   constructor() {
@@ -117,6 +119,9 @@ export class ExchangeCollectorService {
       // 初始化 Express 应用
       this.initializeExpress(config);
 
+      // 初始化统计报告器
+      this.initializeStatsReporter(config);
+
       this.monitor.log('info', 'Exchange Collector service initialized', {
         config: {
           adapters: Object.keys(config.adapters),
@@ -153,6 +158,9 @@ export class ExchangeCollectorService {
         }).on('error', reject);
       });
 
+      // 启动统计报告器
+      this.statsReporter.start();
+
       this.monitor.log('info', 'Exchange Collector service started successfully');
     } catch (error) {
       this.monitor.log('error', 'Failed to start service', { error });
@@ -172,6 +180,11 @@ export class ExchangeCollectorService {
     this.monitor.log('info', 'Stopping Exchange Collector service...');
 
     try {
+      // 停止统计报告器
+      if (this.statsReporter) {
+        this.statsReporter.stop();
+      }
+
       // 停止接收新的 HTTP 请求
       if (this.server) {
         await new Promise<void>((resolve) => {
@@ -274,6 +287,26 @@ export class ExchangeCollectorService {
 
     // 启动自动启动的适配器
     await this.adapterRegistry.startAutoAdapters(adapterConfigs);
+  }
+
+  /**
+   * 初始化统计报告器
+   */
+  private initializeStatsReporter(config: any): void {
+    this.statsReporter = new StatsReporter(
+      this.adapterRegistry,
+      this.monitor,
+      {
+        reportInterval: config.monitoring?.statsReportInterval || 30000, // 30秒
+        verbose: config.monitoring?.verboseStats || false,
+        showZeroValues: config.monitoring?.showZeroValues || false,
+        logLevel: 'info'
+      }
+    );
+
+    this.monitor.log('info', 'Stats reporter initialized', {
+      reportInterval: this.statsReporter.getConfig().reportInterval
+    });
   }
 
   /**

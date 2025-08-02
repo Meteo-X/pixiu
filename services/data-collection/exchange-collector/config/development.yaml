@@ -40,8 +40,8 @@ adapters:
 # Google Cloud Pub/Sub 配置
 pubsub:
   projectId: pixiu-trading-dev
-  useEmulator: true
-  emulatorHost: localhost:8085
+  useEmulator: false
+  # emulatorHost: localhost:8085  # 注释掉模拟器
   topicPrefix: market-data
   publishSettings:
     enableBatching: true
@@ -59,6 +59,10 @@ monitoring:
   enableHealthCheck: true
   metricsInterval: 30000
   healthCheckInterval: 30000
+  # 统计报告配置
+  statsReportInterval: 30000   # 统计报告间隔 (ms)
+  verboseStats: false          # 详细统计模式
+  showZeroValues: false        # 显示零值
   prometheus:
     enabled: true
     port: 9090
@@ -66,6 +70,6 @@ monitoring:
 
 # 日志配置
 logging:
-  level: info
+  level: debug
   format: json
   output: console

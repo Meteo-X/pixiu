@@ -58,6 +58,9 @@ export class BinanceAdapter extends BaseAdapter {
    * 初始化方法（完全重写以使用直接WebSocket连接）
    */
   async initialize(config: BinanceConfig): Promise<void> {
+    // 验证配置
+    this.validateBinanceConfig(config);
+    
     this.config = config;
     
     // 预处理订阅配置，构建流URL
@@ -83,6 +86,27 @@ export class BinanceAdapter extends BaseAdapter {
   }
 
   /**
+   * 验证Binance特定配置参数
+   */
+  private validateBinanceConfig(config: BinanceConfig): void {
+    if (!config) {
+      throw new Error('Configuration is required');
+    }
+
+    if (!config.endpoints) {
+      throw new Error('Endpoints configuration is required');
+    }
+
+    if (!config.endpoints.ws) {
+      throw new Error('WebSocket endpoint (endpoints.ws) is required');
+    }
+
+    if (!config.endpoints.rest) {
+      throw new Error('REST API endpoint (endpoints.rest) is required');
+    }
+  }
+
+  /**
    * 连接方法（完全重写以使用直接WebSocket）
    */
   async connect(): Promise<void> {
@@ -90,8 +114,14 @@ export class BinanceAdapter extends BaseAdapter {
       return;
     }
 
+    // 如果没有配置流，但有默认WebSocket端点，则使用默认端点
     if (!this.combinedStreamUrl) {
-      throw new Error('No streams configured for connection');
+      const config = this.getConfig() as BinanceConfig;
+      if (config?.endpoints?.ws) {
+        this.combinedStreamUrl = config.endpoints.ws;
+      } else {
+        throw new Error('No streams configured for connection and no default WebSocket endpoint');
+      }
     }
 
     this.status = AdapterStatus.CONNECTING;
@@ -115,7 +145,7 @@ export class BinanceAdapter extends BaseAdapter {
 
         // 连接超时
         const timeout = setTimeout(() => {
-          this.ws?.terminate();
+          this.ws?.close();
           reject(new Error('Connection timeout'));
         }, this.config?.connection?.timeout || 10000);
 
@@ -174,9 +204,14 @@ export class BinanceAdapter extends BaseAdapter {
       // 解析市场数据
       const marketData = this.parseMessage(message);
       if (marketData) {
+        // 每100条消息记录一次
+        if (this.metrics && this.metrics.messagesReceived % 100 === 0) {
+          console.log(`Binance adapter received ${this.metrics.messagesReceived} messages, emitting data event`);
+        }
         this.emit('data', marketData);
       }
     } catch (error) {
+      console.error(`Binance adapter error parsing message:`, error);
       this.emit('error', error);
     }
   }
@@ -284,20 +319,14 @@ export class BinanceAdapter extends BaseAdapter {
     const streamArray = Array.from(this.activeStreams);
     this.combinedStreamUrl = this.buildCombinedStreamUrl(streamArray);
     
-    // 断开现有连接
-    if (this.connectionManager?.isConnected()) {
-      await this.connectionManager.disconnect();
+    // 断开现有WebSocket连接
+    if (this.ws) {
+      this.ws.close(1000, 'Reconnecting with new streams');
+      this.ws = undefined;
     }
     
-    // 使用新的URL重新连接
-    const config = this.getConfig() as BinanceConfig;
-    const newConfig = {
-      ...config.connection,
-      url: this.combinedStreamUrl,
-      heartbeatTimeout: config.connection.heartbeatInterval * 2
-    };
-    
-    await this.connectionManager?.connect(newConfig);
+    // 重新建立连接
+    await this.connectWebSocket();
   }
 
   /**
