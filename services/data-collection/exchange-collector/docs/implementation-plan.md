@@ -82,7 +82,7 @@ services/
 
 ### 3.1 适配器注册系统 🚧 **进行中**
 - [x] 创建适配器基础结构（services/data-collection/exchange-collector/src/adapters）
-- [ ] 实现适配器动态加载机制
+- [ ] 实现适配器静态加载机制（启动时根据配置加载）
 - [ ] 实现适配器注册管理器
 - [ ] 实现适配器生命周期管理
 - [ ] 实现适配器状态监控
