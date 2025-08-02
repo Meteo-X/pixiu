@@ -40,7 +40,8 @@
       "Bash(rm:*)",
       "Bash(npx typescript/tsc:*)",
       "Bash(npm run:*)",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Bash(chmod:*)"
     ],
     "deny": []
   }
