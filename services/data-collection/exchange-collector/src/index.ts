@@ -9,10 +9,16 @@ import { AdapterRegistry } from './adapters/registry/adapter-registry';
 import { IntegrationConfig } from './adapters/base/adapter-integration';
 import express = require('express');
 import cors = require('cors');
+import path = require('path');
 import { createHealthRouter } from './api/health';
 import { createMetricsRouter } from './api/metrics';
 import { createAdapterRouter } from './api/adapters';
+import { createSubscriptionRouter } from './api/subscriptions';
+import { createStatsRouter } from './api/stats';
+import { createPubSubControlRouter } from './api/pubsub-control';
 import { StatsReporter } from './monitoring/stats-reporter';
+import { createWebSocketServer, CollectorWebSocketServer } from './websocket';
+import { createDataStreamCache, DataStreamCache } from './cache';
 
 /**
  * Exchange Collector 服务类
@@ -25,6 +31,8 @@ export class ExchangeCollectorService {
   private monitor!: BaseMonitor;
   private errorHandler!: BaseErrorHandler;
   private statsReporter!: StatsReporter;
+  private webSocketServer!: CollectorWebSocketServer;
+  private dataStreamCache!: DataStreamCache;
   private isShuttingDown = false;
 
   constructor() {
@@ -116,6 +124,9 @@ export class ExchangeCollectorService {
         this.errorHandler
       );
 
+      // 初始化数据流缓存
+      this.initializeDataStreamCache(config);
+
       // 初始化 Express 应用
       this.initializeExpress(config);
 
@@ -158,6 +169,9 @@ export class ExchangeCollectorService {
         }).on('error', reject);
       });
 
+      // 初始化 WebSocket 服务器
+      this.initializeWebSocket();
+
       // 启动统计报告器
       this.statsReporter.start();
 
@@ -183,6 +197,16 @@ export class ExchangeCollectorService {
       // 停止统计报告器
       if (this.statsReporter) {
         this.statsReporter.stop();
+      }
+
+      // 停止 WebSocket 服务器
+      if (this.webSocketServer) {
+        await this.webSocketServer.close();
+      }
+
+      // 关闭数据流缓存
+      if (this.dataStreamCache) {
+        this.dataStreamCache.close();
       }
 
       // 停止接收新的 HTTP 请求
@@ -240,6 +264,32 @@ export class ExchangeCollectorService {
     this.app.use('/health', createHealthRouter(this.adapterRegistry, this.monitor));
     this.app.use('/metrics', createMetricsRouter(this.adapterRegistry, this.monitor));
     this.app.use('/api/adapters', createAdapterRouter(this.adapterRegistry, this.monitor));
+    this.app.use('/api/subscriptions', createSubscriptionRouter(this.adapterRegistry, this.monitor, this.dataStreamCache));
+    this.app.use('/api/stats', createStatsRouter(this.adapterRegistry, this.monitor, this.dataStreamCache));
+    this.app.use('/api/pubsub', createPubSubControlRouter(this.adapterRegistry, this.monitor));
+
+    // 静态文件服务 - 服务前端构建文件
+    const frontendDistPath = path.join(__dirname, '../frontend/dist');
+    this.app.use(express.static(frontendDistPath));
+
+    // SPA 路由支持 - 对于非API路由，返回index.html
+    this.app.get('*', (req, res, next) => {
+      // 跳过API路由、健康检查和WebSocket路由
+      if (req.path.startsWith('/api/') || 
+          req.path.startsWith('/health') || 
+          req.path.startsWith('/metrics') || 
+          req.path.startsWith('/ws')) {
+        return next();
+      }
+      
+      // 对于其他路由，返回index.html以支持前端路由
+      res.sendFile(path.join(frontendDistPath, 'index.html'), (err) => {
+        if (err) {
+          this.monitor.log('error', 'Failed to serve index.html', { error: err, path: req.path });
+          res.status(404).json({ error: 'Frontend not available' });
+        }
+      });
+    });
 
     // 错误处理
     this.app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
@@ -306,6 +356,103 @@ export class ExchangeCollectorService {
 
     this.monitor.log('info', 'Stats reporter initialized', {
       reportInterval: this.statsReporter.getConfig().reportInterval
+    });
+  }
+
+  /**
+   * 初始化 WebSocket 服务器
+   */
+  private initializeWebSocket(): void {
+    this.webSocketServer = createWebSocketServer(
+      this.server,
+      this.monitor,
+      this.adapterRegistry,
+      {
+        connectionPool: {
+          maxConnections: 1000,
+          idleTimeout: 300000, // 5分钟
+          cleanupInterval: 60000, // 1分钟
+          enableMetrics: true
+        },
+        messageHandler: {
+          enableRateLimit: true,
+          maxMessagesPerMinute: 60,
+          enableMessageValidation: true,
+          logAllMessages: false
+        }
+      }
+    );
+
+    this.monitor.log('info', 'WebSocket server initialized', {
+      path: '/ws',
+      maxConnections: 1000
+    });
+
+    // 设置适配器数据流到WebSocket的转发
+    this.setupDataStreamForwarding();
+  }
+
+  /**
+   * 设置数据流转发到WebSocket
+   */
+  private setupDataStreamForwarding(): void {
+    // 监听适配器处理的数据
+    this.adapterRegistry.on('instanceDataProcessed', (adapterName: string, marketData: any) => {
+      try {
+        // 构造WebSocket消息格式
+        const websocketMessage = {
+          type: marketData.type || 'market_data',
+          exchange: marketData.exchange || adapterName,
+          symbol: marketData.symbol,
+          data: marketData.data,
+          timestamp: marketData.timestamp || new Date().toISOString()
+        };
+
+        // 转发到WebSocket客户端
+        this.webSocketServer.broadcast({
+          type: websocketMessage.type,
+          payload: websocketMessage
+        });
+
+        // 缓存数据
+        if (this.dataStreamCache) {
+          this.dataStreamCache.set(`${adapterName}:${marketData.symbol}:${marketData.type}`, marketData, adapterName);
+        }
+
+        this.monitor.log('debug', 'Market data forwarded to WebSocket', {
+          adapter: adapterName,
+          symbol: marketData.symbol,
+          type: marketData.type
+        });
+      } catch (error) {
+        this.monitor.log('error', 'Error forwarding market data to WebSocket', {
+          error: error,
+          adapter: adapterName,
+          data: marketData
+        });
+      }
+    });
+
+    this.monitor.log('info', 'Data stream forwarding to WebSocket configured');
+  }
+
+  /**
+   * 初始化数据流缓存
+   */
+  private initializeDataStreamCache(config: any): void {
+    this.dataStreamCache = createDataStreamCache(
+      this.monitor,
+      {
+        maxSize: config.cache?.maxSize || 1000,
+        ttl: config.cache?.ttl || 300000, // 5分钟
+        cleanupInterval: config.cache?.cleanupInterval || 60000, // 1分钟
+        enableMetrics: config.monitoring?.enableMetrics || true
+      }
+    );
+
+    this.monitor.log('info', 'Data stream cache initialized', {
+      maxSize: this.dataStreamCache.getMetrics().totalEntries,
+      ttl: config.cache?.ttl || 300000
     });
   }
 

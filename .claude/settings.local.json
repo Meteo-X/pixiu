@@ -42,7 +42,21 @@
       "Bash(npm run:*)",
       "Bash(npm install:*)",
       "Bash(chmod:*)",
-      "Bash(pkill:*)"
+      "Bash(pkill:*)",
+      "Bash(timeout 10s npm run dev)",
+      "Bash(kill:*)",
+      "Bash(curl:*)",
+      "Bash(true)",
+      "Bash(timeout:*)",
+      "Bash(docker build:*)",
+      "Bash(gcloud:*)",
+      "Bash(./deploy.sh)",
+      "Bash(docker push:*)",
+      "Bash(docker run:*)",
+      "Bash(docker stop:*)",
+      "Bash(docker rm:*)",
+      "Bash(docker exec:*)",
+      "Bash(docker tag:*)"
     ],
     "deny": []
   }

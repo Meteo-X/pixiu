@@ -1,0 +1,89 @@
+# Exchange Collector 生产环境配置
+name: exchange-collector
+version: 1.0.0
+environment: production
+
+server:
+  port: 8080
+  host: 0.0.0.0
+  enableCors: true
+
+# 适配器配置 - 生产环境
+adapters:
+  binance:
+    config:
+      enabled: true
+      endpoints:
+        ws: wss://stream.binance.com:9443/ws
+        rest: https://api.binance.com/api
+      connection:
+        timeout: 10000
+        maxRetries: 3
+        retryInterval: 5000
+        heartbeatInterval: 30000
+    subscription:
+      symbols:
+        - BTCUSDT
+        - ETHUSDT
+        - BNBUSDT
+        - ADAUSDT
+        - DOTUSDT
+      dataTypes:
+        - trade
+        - ticker
+        - kline_1m
+      enableAllTickers: false
+      customParams: {}
+    extensions:
+      testnet: false
+      enableCompression: true
+      enableCombinedStream: true
+      maxStreamCount: 1024
+
+# Google Cloud Pub/Sub 配置 - 生产环境
+pubsub:
+  projectId: ${GOOGLE_CLOUD_PROJECT}
+  useEmulator: false
+  topicPrefix: market-data
+  publishSettings:
+    enableBatching: true
+    batchSize: 100
+    batchTimeout: 1000
+    enableMessageOrdering: false
+    retrySettings:
+      maxRetries: 3
+      initialRetryDelay: 1000
+      maxRetryDelay: 60000
+
+# 监控配置 - 生产环境
+monitoring:
+  enableMetrics: true
+  enableHealthCheck: true
+  metricsInterval: 30000
+  healthCheckInterval: 30000
+  # 统计报告配置
+  statsReportInterval: 60000    # 生产环境减少频率
+  verboseStats: false           # 生产环境关闭详细模式
+  showZeroValues: false
+  prometheus:
+    enabled: true
+    port: 9090
+    path: /metrics
+
+# 日志配置 - 生产环境
+logging:
+  level: info                   # 生产环境使用info级别
+  format: json                  # 结构化日志便于Cloud Logging
+  output: console               # 输出到stdout，由Cloud Run收集
+
+# 缓存配置 - 生产环境优化
+cache:
+  maxSize: 5000                 # 增加缓存大小
+  ttl: 600000                   # 10分钟TTL
+  cleanupInterval: 300000       # 5分钟清理间隔
+
+# 性能配置
+performance:
+  maxConnections: 1000
+  requestTimeout: 30000
+  keepAliveTimeout: 65000

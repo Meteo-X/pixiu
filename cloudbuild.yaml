@@ -1,0 +1,112 @@
+# Google Cloud Build 配置文件
+# Exchange Collector 自动化构建和部署
+
+# 构建步骤
+steps:
+  # 步骤 1: 构建 Docker 镜像
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'build-image'
+    dir: 'services/data-collection/exchange-collector'
+    args:
+      - 'build'
+      - '-f'
+      - 'Dockerfile.standalone'
+      - '-t'
+      - 'gcr.io/pixiu-trading-dev/exchange-collector:$COMMIT_SHA'
+      - '-t'
+      - 'gcr.io/pixiu-trading-dev/exchange-collector:latest'
+      - '.'
+    timeout: 1200s  # 20分钟超时
+
+  # 步骤 2: 推送镜像到 Container Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'push-image'
+    args:
+      - 'push'
+      - 'gcr.io/pixiu-trading-dev/exchange-collector:$COMMIT_SHA'
+    waitFor: ['build-image']
+
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'push-latest'
+    args:
+      - 'push'
+      - 'gcr.io/pixiu-trading-dev/exchange-collector:latest'
+    waitFor: ['build-image']
+
+  # 步骤 3: 部署到 Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    id: 'deploy-cloudrun'
+    entrypoint: 'gcloud'
+    args:
+      - 'run'
+      - 'deploy'
+      - 'exchange-collector'
+      - '--image'
+      - 'gcr.io/pixiu-trading-dev/exchange-collector:$COMMIT_SHA'
+      - '--region'
+      - 'asia-northeast1'
+      - '--platform'
+      - 'managed'
+      - '--allow-unauthenticated'
+      - '--port'
+      - '8080'
+      - '--memory'
+      - '2Gi'
+      - '--cpu'
+      - '2'
+      - '--concurrency'
+      - '100'
+      - '--timeout'
+      - '300s'
+      - '--max-instances'
+      - '10'
+      - '--min-instances'
+      - '1'
+      - '--set-env-vars'
+      - 'NODE_ENV=production,GOOGLE_CLOUD_PROJECT=pixiu-trading-dev'
+    waitFor: ['push-image']
+
+  # 步骤 4: 验证部署
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    id: 'verify-deployment'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        # 获取服务URL
+        SERVICE_URL=$$(gcloud run services describe exchange-collector --region=asia-northeast1 --format="value(status.url)")
+        echo "Service URL: $$SERVICE_URL"
+        
+        # 等待服务启动
+        sleep 30
+        
+        # 健康检查
+        curl -f "$$SERVICE_URL/health" || exit 1
+        echo "✅ Health check passed"
+        
+        # API测试
+        curl -f "$$SERVICE_URL/api/adapters" || exit 1
+        echo "✅ API endpoints working"
+        
+        echo "🚀 Deployment verification completed successfully"
+    waitFor: ['deploy-cloudrun']
+
+# 选项配置
+options:
+  # 使用高性能机器加速构建
+  machineType: 'E2_HIGHCPU_8'
+  
+  # 日志配置
+  logging: CLOUD_LOGGING_ONLY
+  
+  # 替换变量配置
+  substitution_option: 'ALLOW_LOOSE'
+
+# 超时设置
+timeout: '3600s'  # 1小时总超时
+
+# 构建标签
+tags:
+  - 'exchange-collector'
+  - 'production'
+  - 'pixiu-trading'

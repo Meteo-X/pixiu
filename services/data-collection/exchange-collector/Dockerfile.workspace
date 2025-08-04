@@ -1,0 +1,115 @@
+# Exchange Collector Dockerfile - 从项目根目录构建
+# 使用说明：docker build -f services/data-collection/exchange-collector/Dockerfile.workspace -t exchange-collector .
+
+# =============================================================================
+# 阶段 1: 前端构建
+# =============================================================================
+FROM node:18-alpine AS frontend-builder
+
+WORKDIR /app
+
+# 复制前端package.json
+COPY services/data-collection/exchange-collector/frontend/package*.json ./frontend/
+WORKDIR /app/frontend
+
+# 安装前端依赖
+RUN npm ci --silent
+
+# 复制前端源代码并构建
+COPY services/data-collection/exchange-collector/frontend/ ./
+RUN npm run build
+
+# =============================================================================
+# 阶段 2: 后端依赖安装
+# =============================================================================
+FROM node:18-alpine AS dependencies
+
+WORKDIR /app
+
+# 安装系统依赖
+RUN apk add --no-cache python3 make g++
+
+# 复制workspace的package.json
+COPY package*.json ./
+COPY services/infrastructure/shared-core/package*.json ./services/infrastructure/shared-core/
+COPY services/infrastructure/adapter-base/package*.json ./services/infrastructure/adapter-base/
+COPY services/adapters/binance-adapter/package*.json ./services/adapters/binance-adapter/
+COPY services/data-collection/exchange-collector/package*.json ./services/data-collection/exchange-collector/
+
+# 安装workspace依赖
+RUN npm ci --workspaces
+
+# =============================================================================
+# 阶段 3: 后端构建
+# =============================================================================
+FROM node:18-alpine AS backend-builder
+
+WORKDIR /app
+
+# 从依赖阶段复制文件
+COPY --from=dependencies /app ./
+
+# 复制源代码
+COPY services/ ./services/
+
+# 构建 - 先构建基础包，再构建exchange-collector
+WORKDIR /app/services/infrastructure/shared-core
+RUN npm run build
+
+WORKDIR /app/services/infrastructure/adapter-base  
+RUN npm run build
+
+WORKDIR /app/services/adapters/binance-adapter
+RUN npm run build
+
+WORKDIR /app/services/data-collection/exchange-collector
+# 暂时跳过TypeScript编译，使用ts-node直接运行
+RUN echo "TypeScript compilation skipped, will use ts-node at runtime"
+
+# =============================================================================
+# 阶段 4: 生产镜像
+# =============================================================================
+FROM node:18-alpine AS production
+
+# 创建用户
+RUN addgroup -g 1001 -S appgroup && \
+    adduser -S appuser -u 1001 -G appgroup
+
+WORKDIR /app
+
+# 安装运行时依赖
+RUN apk add --no-cache dumb-init
+
+# 复制构建结果
+COPY --from=backend-builder --chown=appuser:appgroup /app/node_modules ./node_modules
+COPY --from=backend-builder --chown=appuser:appgroup /app/services ./services
+COPY --from=frontend-builder --chown=appuser:appgroup /app/frontend/dist ./services/data-collection/exchange-collector/frontend/dist
+
+# 设置工作目录为exchange-collector
+WORKDIR /app/services/data-collection/exchange-collector
+
+# 设置权限
+RUN chown -R appuser:appgroup /app
+USER appuser
+
+# 健康检查
+HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
+    CMD node -e "const http = require('http'); \
+    const options = { hostname: 'localhost', port: 8080, path: '/health', timeout: 5000 }; \
+    const req = http.request(options, (res) => { \
+        process.exit(res.statusCode === 200 ? 0 : 1); \
+    }); \
+    req.on('error', () => process.exit(1)); \
+    req.on('timeout', () => { req.destroy(); process.exit(1); }); \
+    req.end();"
+
+# 环境变量
+ENV NODE_ENV=production
+ENV PORT=8080
+ENV GOOGLE_CLOUD_PROJECT=pixiu-trading-dev
+
+EXPOSE 8080
+
+ENTRYPOINT ["dumb-init", "--"]
+# 使用ts-node直接运行TypeScript源码
+CMD ["npx", "ts-node", "src/index.ts"]

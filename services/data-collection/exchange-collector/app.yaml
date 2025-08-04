@@ -1,0 +1,42 @@
+# Google App Engine 部署配置文件
+# 作为 Cloud Run 部署的替代方案
+
+runtime: nodejs18
+
+env_variables:
+  NODE_ENV: production
+  GOOGLE_CLOUD_PROJECT: pixiu-trading-dev
+  PORT: 8080
+
+automatic_scaling:
+  min_instances: 1
+  max_instances: 10
+  target_cpu_utilization: 0.7
+
+resources:
+  cpu: 2
+  memory_gb: 2
+  disk_size_gb: 10
+
+handlers:
+  # 静态文件处理
+  - url: /static
+    static_dir: frontend/dist
+    secure: always
+
+  # API 路由
+  - url: /.*
+    script: auto
+    secure: always
+
+# 健康检查
+health_check:
+  enable_health_check: true
+  check_interval_sec: 30
+  timeout_sec: 10
+  unhealthy_threshold: 2
+  healthy_threshold: 2
+
+# 网络配置
+network:
+  session_affinity: false

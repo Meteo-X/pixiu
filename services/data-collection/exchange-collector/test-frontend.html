@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Exchange Collector 前端测试</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        .status.connected { background-color: #d4edda; color: #155724; }
+        .status.connecting { background-color: #fff3cd; color: #856404; }
+        .status.error { background-color: #f8d7da; color: #721c24; }
+        .section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .section h3 {
+            margin-top: 0;
+            color: #333;
+        }
+        .data-card {
+            background: #f8f9fa;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            border-left: 4px solid #007bff;
+        }
+        pre {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+            font-size: 12px;
+        }
+        .metrics {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+        .metric {
+            text-align: center;
+            padding: 15px;
+            background: #e9ecef;
+            border-radius: 4px;
+        }
+        .metric-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #007bff;
+        }
+        .metric-label {
+            font-size: 14px;
+            color: #666;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Exchange Collector 前端集成测试</h1>
+        
+        <!-- 连接状态 -->
+        <div id="connectionStatus" class="status connecting">
+            🔄 正在连接...
+        </div>
+        
+        <!-- API测试 -->
+        <div class="section">
+            <h3>📡 API 端点测试</h3>
+            <div id="apiTests">
+                <div>⏳ 正在测试API端点...</div>
+            </div>
+        </div>
+        
+        <!-- 系统指标 -->
+        <div class="section">
+            <h3>📊 系统指标</h3>
+            <div id="systemMetrics" class="metrics">
+                <div class="metric">
+                    <div class="metric-value" id="activeAdapters">-</div>
+                    <div class="metric-label">活跃适配器</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-value" id="totalMessages">-</div>
+                    <div class="metric-label">总消息数</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-value" id="cacheEntries">-</div>
+                    <div class="metric-label">缓存条目</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-value" id="memoryUsage">-</div>
+                    <div class="metric-label">内存使用</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- WebSocket数据流 -->
+        <div class="section">
+            <h3>📈 实时数据流</h3>
+            <div id="wsStatus">🔄 正在连接WebSocket...</div>
+            <div id="wsMessages"></div>
+        </div>
+        
+        <!-- 适配器状态 -->
+        <div class="section">
+            <h3>🔧 适配器状态</h3>
+            <div id="adaptersStatus">⏳ 正在加载...</div>
+        </div>
+    </div>
+
+    <script>
+        class FrontendTester {
+            constructor() {
+                this.wsMessageCount = 0;
+                this.maxWsMessages = 5;
+                this.init();
+            }
+
+            async init() {
+                await this.testAPIs();
+                this.connectWebSocket();
+                
+                // 每30秒更新一次数据
+                setInterval(() => this.updateMetrics(), 30000);
+            }
+
+            async testAPIs() {
+                const apiTests = document.getElementById('apiTests');
+                const tests = [
+                    { name: '健康检查', url: '/health' },
+                    { name: '适配器状态', url: '/api/adapters' },
+                    { name: '统计数据', url: '/api/stats' }
+                ];
+
+                let results = '';
+                
+                for (const test of tests) {
+                    try {
+                        const response = await fetch(test.url);
+                        if (response.ok) {
+                            results += `✅ ${test.name}: 200 OK<br>`;
+                            
+                            if (test.url === '/api/stats') {
+                                const data = await response.json();
+                                this.updateSystemMetrics(data);
+                            } else if (test.url === '/api/adapters') {
+                                const data = await response.json();
+                                this.updateAdaptersStatus(data);
+                            }
+                        } else {
+                            results += `❌ ${test.name}: ${response.status}<br>`;
+                        }
+                    } catch (error) {
+                        results += `❌ ${test.name}: ${error.message}<br>`;
+                    }
+                }
+                
+                apiTests.innerHTML = results;
+            }
+
+            updateSystemMetrics(data) {
+                document.getElementById('activeAdapters').textContent = data.system?.activeAdapters || 0;
+                document.getElementById('totalMessages').textContent = 
+                    (data.system?.totalMessagesReceived || 0).toLocaleString();
+                document.getElementById('cacheEntries').textContent = data.cache?.totalEntries || 0;
+                document.getElementById('memoryUsage').textContent = 
+                    Math.round(data.system?.memoryUsage?.percentage || 0) + '%';
+            }
+
+            updateAdaptersStatus(data) {
+                const container = document.getElementById('adaptersStatus');
+                let html = '';
+                
+                if (data.adapters && data.adapters.length > 0) {
+                    data.adapters.forEach(adapter => {
+                        const statusColor = adapter.healthy ? '#28a745' : '#dc3545';
+                        html += `
+                            <div class="data-card">
+                                <strong>${adapter.name}</strong> 
+                                <span style="color: ${statusColor}">●</span> ${adapter.status}
+                                <br>
+                                <small>消息: ${adapter.metrics?.messagesProcessed || 0} | 
+                                      错误: ${adapter.metrics?.processingErrors || 0}</small>
+                            </div>
+                        `;
+                    });
+                } else {
+                    html = '暂无适配器数据';
+                }
+                
+                container.innerHTML = html;
+            }
+
+            connectWebSocket() {
+                const wsStatus = document.getElementById('wsStatus');
+                const wsMessages = document.getElementById('wsMessages');
+                
+                try {
+                    const ws = new WebSocket(`ws://${window.location.hostname}:8080/ws`);
+                    
+                    ws.onopen = () => {
+                        wsStatus.innerHTML = '✅ WebSocket已连接';
+                        document.getElementById('connectionStatus').className = 'status connected';
+                        document.getElementById('connectionStatus').innerHTML = '✅ 系统连接正常';
+                    };
+
+                    ws.onmessage = (event) => {
+                        try {
+                            const data = JSON.parse(event.data);
+                            this.wsMessageCount++;
+                            
+                            if (this.wsMessageCount <= this.maxWsMessages) {
+                                const messageDiv = document.createElement('div');
+                                messageDiv.className = 'data-card';
+                                
+                                if (data.payload && data.payload.exchange) {
+                                    messageDiv.innerHTML = `
+                                        <strong>${data.type}</strong> - ${data.payload.exchange}/${data.payload.symbol}
+                                        <br><small>时间: ${new Date(data.payload.timestamp).toLocaleTimeString()}</small>
+                                        <pre>${JSON.stringify(data.payload.data, null, 2)}</pre>
+                                    `;
+                                } else {
+                                    messageDiv.innerHTML = `
+                                        <strong>${data.type}</strong>
+                                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                                    `;
+                                }
+                                
+                                wsMessages.appendChild(messageDiv);
+                            }
+                            
+                            if (this.wsMessageCount === this.maxWsMessages) {
+                                const limitDiv = document.createElement('div');
+                                limitDiv.className = 'data-card';
+                                limitDiv.style.background = '#e2e3e5';
+                                limitDiv.innerHTML = `
+                                    <em>已显示前${this.maxWsMessages}条消息，继续接收但不再显示...</em>
+                                `;
+                                wsMessages.appendChild(limitDiv);
+                            }
+                            
+                        } catch (error) {
+                            console.error('WebSocket消息解析错误:', error);
+                        }
+                    };
+
+                    ws.onerror = (error) => {
+                        wsStatus.innerHTML = '❌ WebSocket连接错误';
+                        document.getElementById('connectionStatus').className = 'status error';
+                        document.getElementById('connectionStatus').innerHTML = '❌ WebSocket连接失败';
+                    };
+
+                    ws.onclose = () => {
+                        wsStatus.innerHTML = '🔌 WebSocket已断开';
+                    };
+                    
+                } catch (error) {
+                    wsStatus.innerHTML = '❌ WebSocket连接失败: ' + error.message;
+                }
+            }
+
+            async updateMetrics() {
+                try {
+                    const response = await fetch('/api/stats');
+                    if (response.ok) {
+                        const data = await response.json();
+                        this.updateSystemMetrics(data);
+                    }
+                } catch (error) {
+                    console.error('更新指标失败:', error);
+                }
+            }
+        }
+
+        // 页面加载完成后启动测试
+        window.addEventListener('DOMContentLoaded', () => {
+            new FrontendTester();
+        });
+    </script>
+</body>
+</html>

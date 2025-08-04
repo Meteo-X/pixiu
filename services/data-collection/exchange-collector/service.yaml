@@ -1,0 +1,102 @@
+# Cloud Run 服务配置
+# Exchange Collector 生产环境部署配置
+
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: exchange-collector
+  namespace: 'default'
+  labels:
+    service: exchange-collector
+    environment: production
+  annotations:
+    # Cloud Run 特定注解
+    run.googleapis.com/ingress: all
+    run.googleapis.com/cpu-throttling: "false"
+spec:
+  template:
+    metadata:
+      labels:
+        service: exchange-collector
+        version: latest
+      annotations:
+        # 扩缩容配置
+        autoscaling.knative.dev/minScale: "1"
+        autoscaling.knative.dev/maxScale: "10"
+        
+        # 执行环境
+        run.googleapis.com/execution-environment: gen2
+        
+        # CPU 分配
+        run.googleapis.com/cpu-throttling: "false"
+    spec:
+      # 容器并发数
+      containerConcurrency: 100
+      
+      # 请求超时
+      timeoutSeconds: 300
+      
+      # 服务账号
+      serviceAccountName: exchange-collector-sa
+      
+      containers:
+      - image: gcr.io/PROJECT_ID/exchange-collector:latest
+        ports:
+        - name: http1
+          containerPort: 8080
+        
+        # 环境变量
+        env:
+        - name: NODE_ENV
+          value: "production"
+        - name: GOOGLE_CLOUD_PROJECT
+          value: "pixiu-trading-dev"
+        - name: PORT
+          value: "8080"
+        
+        # 资源限制
+        resources:
+          limits:
+            cpu: "2000m"
+            memory: "2Gi"
+          requests:
+            cpu: "1000m"
+            memory: "1Gi"
+        
+        # 健康检查
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+        
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        
+        # 启动探针
+        startupProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 20
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 30
+
+---
+# 服务账号配置
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: exchange-collector-sa
+  annotations:
+    iam.gke.io/gcp-service-account: exchange-collector@pixiu-trading-dev.iam.gserviceaccount.com

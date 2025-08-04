@@ -1,0 +1,63 @@
+# Docker ignore for root build context
+
+# Node modules (will be reinstalled)
+**/node_modules/
+**/dist/
+**/build/
+
+# Logs
+**/*.log
+**/logs/
+
+# Test and coverage
+**/coverage/
+**/test-results/
+**/__tests__/
+**/tests/
+**/*.test.*
+**/*.spec.*
+
+# Development files
+**/.vscode/
+**/.idea/
+**/.git/
+**/.github/
+**/.gitlab-ci.yml
+**/*.md
+!README.md
+
+# Environment files
+**/.env*
+**/config/local.*
+**/config/development.*
+
+# Temporary files
+**/tmp/
+**/temp/
+**/.tmp/
+
+# Frontend source (will be built)
+**/frontend/src/
+**/frontend/public/
+**/frontend/.vite/
+
+# Keep only necessary files
+!package*.json
+!services/infrastructure/shared-core/package*.json
+!services/infrastructure/shared-core/src/
+!services/infrastructure/shared-core/tsconfig.json
+!services/infrastructure/adapter-base/package*.json
+!services/infrastructure/adapter-base/src/
+!services/infrastructure/adapter-base/tsconfig.json
+!services/adapters/binance-adapter/package*.json
+!services/adapters/binance-adapter/src/
+!services/adapters/binance-adapter/tsconfig.json
+!services/data-collection/exchange-collector/package*.json
+!services/data-collection/exchange-collector/src/
+!services/data-collection/exchange-collector/config/
+!services/data-collection/exchange-collector/tsconfig.json
+!services/data-collection/exchange-collector/frontend/package*.json
+!services/data-collection/exchange-collector/frontend/src/
+!services/data-collection/exchange-collector/frontend/public/
+!services/data-collection/exchange-collector/frontend/tsconfig.json
+!services/data-collection/exchange-collector/frontend/vite.config.ts
