@@ -1,0 +1,508 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Exchange Collector Configuration Schema",
+  "type": "object",
+  "properties": {
+    "service": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "default": "exchange-collector"
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^\\d+\\.\\d+\\.\\d+$",
+          "default": "1.0.0"
+        },
+        "environment": {
+          "type": "string",
+          "enum": ["development", "test", "production"],
+          "default": "development"
+        },
+        "server": {
+          "type": "object",
+          "properties": {
+            "port": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 65535,
+              "default": 8080
+            },
+            "host": {
+              "type": "string",
+              "default": "0.0.0.0"
+            },
+            "enableCors": {
+              "type": "boolean",
+              "default": true
+            },
+            "timeout": {
+              "type": "integer",
+              "minimum": 1000,
+              "default": 30000
+            }
+          },
+          "required": ["port", "host", "enableCors"],
+          "additionalProperties": false
+        }
+      },
+      "required": ["name", "version", "environment", "server"],
+      "additionalProperties": false
+    },
+    "adapters": {
+      "type": "object",
+      "patternProperties": {
+        "^[a-zA-Z][a-zA-Z0-9_-]*$": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "config": {
+              "type": "object",
+              "properties": {
+                "endpoints": {
+                  "type": "object",
+                  "properties": {
+                    "ws": {
+                      "type": "string",
+                      "format": "uri",
+                      "pattern": "^wss?://"
+                    },
+                    "rest": {
+                      "type": "string",
+                      "format": "uri",
+                      "pattern": "^https?://"
+                    }
+                  },
+                  "required": ["ws", "rest"],
+                  "additionalProperties": false
+                },
+                "connection": {
+                  "type": "object",
+                  "properties": {
+                    "timeout": {
+                      "type": "integer",
+                      "minimum": 1000
+                    },
+                    "maxRetries": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "retryInterval": {
+                      "type": "integer",
+                      "minimum": 1000
+                    },
+                    "heartbeatInterval": {
+                      "type": "integer",
+                      "minimum": 5000
+                    }
+                  },
+                  "required": ["timeout", "maxRetries", "retryInterval", "heartbeatInterval"],
+                  "additionalProperties": false
+                }
+              },
+              "required": ["endpoints", "connection"],
+              "additionalProperties": true
+            },
+            "subscription": {
+              "type": "object",
+              "properties": {
+                "symbols": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "pattern": "^[A-Z0-9]+$"
+                  },
+                  "minItems": 0
+                },
+                "dataTypes": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "enum": ["trade", "ticker", "kline_1m", "kline_5m", "kline_15m", "kline_1h", "kline_1d", "depth", "aggTrade", "miniTicker", "bookTicker"]
+                  },
+                  "minItems": 1
+                },
+                "enableAllTickers": {
+                  "type": "boolean"
+                },
+                "customParams": {
+                  "type": "object"
+                }
+              },
+              "required": ["symbols", "dataTypes", "enableAllTickers", "customParams"],
+              "additionalProperties": false
+            },
+            "extensions": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          },
+          "required": ["enabled", "config", "subscription"],
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "dataflow": {
+      "type": "object",
+      "properties": {
+        "bufferSize": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 1000
+        },
+        "batchSize": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 100
+        },
+        "flushInterval": {
+          "type": "integer",
+          "minimum": 100,
+          "default": 1000
+        },
+        "enableCompression": {
+          "type": "boolean",
+          "default": false
+        },
+        "enableMessageOrdering": {
+          "type": "boolean",
+          "default": false
+        },
+        "performance": {
+          "type": "object",
+          "properties": {
+            "maxMemoryUsage": {
+              "type": "integer",
+              "minimum": 104857600
+            },
+            "gcThreshold": {
+              "type": "number",
+              "minimum": 0.1,
+              "maximum": 1.0
+            },
+            "enableOptimization": {
+              "type": "boolean"
+            }
+          },
+          "required": ["maxMemoryUsage", "gcThreshold", "enableOptimization"],
+          "additionalProperties": false
+        },
+        "exchange": {
+          "type": "object",
+          "properties": {
+            "enableMultiExchange": {
+              "type": "boolean"
+            },
+            "crossExchangeValidation": {
+              "type": "boolean"
+            },
+            "dataAggregationStrategy": {
+              "type": "string",
+              "enum": ["first", "latest", "merge"]
+            },
+            "conflictResolution": {
+              "type": "string",
+              "enum": ["priority", "timestamp", "manual"]
+            }
+          },
+          "additionalProperties": false
+        },
+        "dataTypes": {
+          "type": "object",
+          "patternProperties": {
+            "^(trade|ticker|kline|orderbook)$": {
+              "type": "object",
+              "properties": {
+                "bufferSize": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "batchTimeout": {
+                  "type": "integer",
+                  "minimum": 10
+                },
+                "enableDeduplication": {
+                  "type": "boolean"
+                },
+                "throttleInterval": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "intervals": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "depth": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "enableSnapshot": {
+                  "type": "boolean"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "required": ["bufferSize", "batchSize", "flushInterval", "enableCompression", "enableMessageOrdering", "performance"],
+      "additionalProperties": false
+    },
+    "websocket": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": true
+        },
+        "port": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535,
+          "default": 8081
+        },
+        "maxConnections": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 1000
+        },
+        "messageBuffer": {
+          "type": "integer",
+          "minimum": 100,
+          "default": 10000
+        },
+        "enableHeartbeat": {
+          "type": "boolean",
+          "default": true
+        },
+        "heartbeatInterval": {
+          "type": "integer",
+          "minimum": 5000,
+          "default": 30000
+        }
+      },
+      "required": ["enabled", "port", "maxConnections", "messageBuffer", "enableHeartbeat", "heartbeatInterval"],
+      "additionalProperties": false
+    },
+    "monitoring": {
+      "type": "object",
+      "properties": {
+        "enableMetrics": {
+          "type": "boolean",
+          "default": true
+        },
+        "enableHealthCheck": {
+          "type": "boolean",
+          "default": true
+        },
+        "metricsInterval": {
+          "type": "integer",
+          "minimum": 1000,
+          "default": 30000
+        },
+        "healthCheckInterval": {
+          "type": "integer",
+          "minimum": 1000,
+          "default": 30000
+        },
+        "statsReportInterval": {
+          "type": "integer",
+          "minimum": 1000,
+          "default": 30000
+        },
+        "verboseStats": {
+          "type": "boolean",
+          "default": false
+        },
+        "showZeroValues": {
+          "type": "boolean",
+          "default": false
+        },
+        "prometheus": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": true
+            },
+            "port": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 65535,
+              "default": 9090
+            },
+            "path": {
+              "type": "string",
+              "pattern": "^/.*",
+              "default": "/metrics"
+            }
+          },
+          "required": ["enabled", "port", "path"],
+          "additionalProperties": false
+        }
+      },
+      "required": ["enableMetrics", "enableHealthCheck", "metricsInterval", "healthCheckInterval", "statsReportInterval", "verboseStats", "showZeroValues", "prometheus"],
+      "additionalProperties": false
+    },
+    "pubsub": {
+      "type": "object",
+      "properties": {
+        "projectId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "useEmulator": {
+          "type": "boolean",
+          "default": false
+        },
+        "emulatorHost": {
+          "type": "string",
+          "pattern": "^[\\w.-]+:\\d+$"
+        },
+        "topicPrefix": {
+          "type": "string",
+          "default": "market-data"
+        },
+        "publishSettings": {
+          "type": "object",
+          "properties": {
+            "enableBatching": {
+              "type": "boolean",
+              "default": true
+            },
+            "batchSize": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 100
+            },
+            "batchTimeout": {
+              "type": "integer",
+              "minimum": 100,
+              "default": 1000
+            },
+            "enableMessageOrdering": {
+              "type": "boolean",
+              "default": false
+            },
+            "retrySettings": {
+              "type": "object",
+              "properties": {
+                "maxRetries": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "default": 3
+                },
+                "initialRetryDelay": {
+                  "type": "integer",
+                  "minimum": 100,
+                  "default": 1000
+                },
+                "maxRetryDelay": {
+                  "type": "integer",
+                  "minimum": 1000,
+                  "default": 60000
+                }
+              },
+              "required": ["maxRetries", "initialRetryDelay", "maxRetryDelay"],
+              "additionalProperties": false
+            }
+          },
+          "required": ["enableBatching", "batchSize", "batchTimeout", "enableMessageOrdering", "retrySettings"],
+          "additionalProperties": false
+        }
+      },
+      "required": ["projectId", "useEmulator", "topicPrefix", "publishSettings"],
+      "additionalProperties": false
+    },
+    "logging": {
+      "type": "object",
+      "properties": {
+        "level": {
+          "type": "string",
+          "enum": ["error", "warn", "info", "debug", "silly"],
+          "default": "info"
+        },
+        "format": {
+          "type": "string",
+          "enum": ["json", "simple", "combined"],
+          "default": "json"
+        },
+        "output": {
+          "type": "string",
+          "enum": ["console", "file", "both"],
+          "default": "console"
+        },
+        "file": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string"
+            },
+            "maxSize": {
+              "type": "string",
+              "pattern": "^\\d+[kmg]?b?$"
+            },
+            "maxFiles": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          "required": ["path", "maxSize", "maxFiles"],
+          "additionalProperties": false
+        }
+      },
+      "required": ["level", "format", "output"],
+      "additionalProperties": false
+    },
+    "business": {
+      "type": "object",
+      "properties": {
+        "enableDataPersistence": {
+          "type": "boolean",
+          "default": true
+        },
+        "maxDataRetentionDays": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 7
+        },
+        "enableRealTimeProcessing": {
+          "type": "boolean",
+          "default": true
+        },
+        "dataQualityChecks": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": true
+            },
+            "maxLatencyMs": {
+              "type": "integer",
+              "minimum": 100,
+              "default": 1000
+            },
+            "minDataFreshness": {
+              "type": "integer",
+              "minimum": 1000,
+              "default": 5000
+            }
+          },
+          "required": ["enabled", "maxLatencyMs", "minDataFreshness"],
+          "additionalProperties": false
+        }
+      },
+      "required": ["enableDataPersistence", "maxDataRetentionDays", "enableRealTimeProcessing", "dataQualityChecks"],
+      "additionalProperties": false
+    }
+  },
+  "required": ["service", "adapters", "dataflow", "websocket", "monitoring", "pubsub", "logging"],
+  "additionalProperties": false
+}

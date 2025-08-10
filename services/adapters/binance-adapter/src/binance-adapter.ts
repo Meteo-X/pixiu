@@ -4,10 +4,8 @@
  */
 
 import { createHmac } from 'crypto';
-import WebSocket from 'ws';
 import {
   BaseAdapter,
-  BaseConnectionManager,
   AdapterConfig,
   AdapterStatus,
   DataType,
@@ -20,6 +18,7 @@ import {
   KlineData,
   DepthData
 } from '@pixiu/adapter-base';
+import { BinanceConnectionManager, BinanceCombinedStreamConfig } from './connection/binance-connection-manager';
 
 export interface BinanceConfig extends AdapterConfig {
   /** 订阅配置 */
@@ -32,6 +31,10 @@ export interface BinanceConfig extends AdapterConfig {
     enableCompression?: boolean;
     /** 批量订阅大小 */
     batchSize?: number;
+    /** 是否自动管理组合流 */
+    autoManageStreams?: boolean;
+    /** 组合流配置（内部使用） */
+    combinedStream?: BinanceCombinedStreamConfig;
   };
 }
 
@@ -40,47 +43,49 @@ export class BinanceAdapter extends BaseAdapter {
   
   private streamId = 0;
   private streamMap = new Map<string, string>(); // subscription -> stream name
-  private activeStreams = new Set<string>(); // 活跃的流名称
-  private combinedStreamUrl?: string; // 组合流URL
-  private ws?: WebSocket; // 直接WebSocket连接
-  private reconnectTimer?: NodeJS.Timeout;
-  private binanceReconnectAttempts = 0;
-  private maxReconnectAttempts = 5;
+  private binanceConnectionManager?: BinanceConnectionManager;
 
   /**
    * 创建连接管理器
    */
   protected async createConnectionManager(): Promise<ConnectionManager> {
-    return new BaseConnectionManager();
+    this.binanceConnectionManager = new BinanceConnectionManager();
+    return this.binanceConnectionManager;
   }
 
   /**
-   * 初始化方法（完全重写以使用直接WebSocket连接）
+   * 初始化方法
    */
   async initialize(config: BinanceConfig): Promise<void> {
     // 验证配置
     this.validateBinanceConfig(config);
     
-    this.config = config;
-    
-    // 预处理订阅配置，构建流URL
+    // 准备初始化流列表
+    const initialStreams: string[] = [];
     if (config.subscription?.symbols && config.subscription?.dataTypes) {
       // 为所有符号和数据类型预创建流
       for (const symbol of config.subscription.symbols) {
         for (const dataType of config.subscription.dataTypes) {
           const streamName = this.buildStreamName(symbol, dataType);
-          this.activeStreams.add(streamName);
+          initialStreams.push(streamName);
         }
-      }
-      
-      // 构建初始组合流URL
-      if (this.activeStreams.size > 0) {
-        const streamArray = Array.from(this.activeStreams);
-        this.combinedStreamUrl = this.buildCombinedStreamUrl(streamArray);
       }
     }
     
-    // 基类会自动初始化指标
+    // 扩展配置以包含Binance特定选项
+    const binanceConfig: BinanceConfig = {
+      ...config,
+      binance: {
+        ...config.binance,
+        combinedStream: {
+          streams: initialStreams,
+          autoManage: config.binance?.autoManageStreams ?? true
+        }
+      }
+    };
+    
+    // 调用基类初始化
+    await super.initialize(binanceConfig);
     
     this.emit('initialized');
   }
@@ -106,167 +111,11 @@ export class BinanceAdapter extends BaseAdapter {
     }
   }
 
-  /**
-   * 连接方法（完全重写以使用直接WebSocket）
-   */
-  async connect(): Promise<void> {
-    if (this.status === AdapterStatus.CONNECTED) {
-      return;
-    }
 
-    // 如果没有配置流，但有默认WebSocket端点，则使用默认端点
-    if (!this.combinedStreamUrl) {
-      const config = this.getConfig() as BinanceConfig;
-      if (config?.endpoints?.ws) {
-        this.combinedStreamUrl = config.endpoints.ws;
-      } else {
-        throw new Error('No streams configured for connection and no default WebSocket endpoint');
-      }
-    }
 
-    this.status = AdapterStatus.CONNECTING;
-    this.binanceReconnectAttempts = 0;
-    
-    return this.connectWebSocket();
-  }
 
-  /**
-   * 直接WebSocket连接（参考实验代码）
-   */
-  private async connectWebSocket(): Promise<void> {
-    return new Promise((resolve, reject) => {
-      if (!this.combinedStreamUrl) {
-        reject(new Error('No WebSocket URL configured'));
-        return;
-      }
 
-      try {
-        this.ws = new WebSocket(this.combinedStreamUrl);
 
-        // 连接超时
-        const timeout = setTimeout(() => {
-          this.ws?.close();
-          reject(new Error('Connection timeout'));
-        }, this.config?.connection?.timeout || 10000);
-
-        this.ws.on('open', () => {
-          clearTimeout(timeout);
-          this.status = AdapterStatus.CONNECTED;
-          this.binanceReconnectAttempts = 0;
-          this.emit('connected');
-          resolve();
-        });
-
-        this.ws.on('message', (data: WebSocket.Data) => {
-          this.handleWebSocketMessage(data);
-        });
-
-        this.ws.on('error', (error) => {
-          clearTimeout(timeout);
-          this.emit('error', error);
-          this.scheduleReconnect();
-          reject(error);
-        });
-
-        this.ws.on('close', (code, reason) => {
-          clearTimeout(timeout);
-          this.status = AdapterStatus.DISCONNECTED;
-          this.emit('disconnected', reason.toString());
-          
-          // 只有在非正常关闭时才重连
-          if (code !== 1000 && this.status !== AdapterStatus.DISCONNECTED) {
-            this.scheduleReconnect();
-          }
-        });
-
-        // Ping/Pong处理（参考实验代码）
-        this.ws.on('ping', () => {
-          this.ws?.pong();
-        });
-
-      } catch (error) {
-        reject(error);
-      }
-    });
-  }
-
-  /**
-   * 处理WebSocket消息（参考实验代码）
-   */
-  private handleWebSocketMessage(data: WebSocket.Data): void {
-    try {
-      const messageSize = Buffer.byteLength(data.toString());
-      const message = JSON.parse(data.toString());
-      
-      // 更新指标
-      this.updateMetrics(messageSize);
-      
-      // 解析市场数据
-      const marketData = this.parseMessage(message);
-      if (marketData) {
-        // 每100条消息记录一次
-        if (this.metrics && this.metrics.messagesReceived % 100 === 0) {
-          console.log(`Binance adapter received ${this.metrics.messagesReceived} messages, emitting data event`);
-        }
-        this.emit('data', marketData);
-      }
-    } catch (error) {
-      console.error(`Binance adapter error parsing message:`, error);
-      this.emit('error', error);
-    }
-  }
-
-  /**
-   * 更新适配器指标
-   */
-  private updateMetrics(messageSize: number = 0): void {
-    if (this.metrics) {
-      this.metrics.messagesReceived++;
-      this.metrics.status = this.status;
-    }
-  }
-
-  /**
-   * 调度重连
-   */
-  private scheduleReconnect(): void {
-    if (this.reconnectTimer) {
-      clearTimeout(this.reconnectTimer);
-    }
-
-    if (this.binanceReconnectAttempts >= this.maxReconnectAttempts) {
-      this.status = AdapterStatus.ERROR;
-      this.emit('error', new Error(`Max reconnect attempts (${this.maxReconnectAttempts}) exceeded`));
-      return;
-    }
-
-    const delay = Math.min(1000 * Math.pow(2, this.binanceReconnectAttempts), 30000); // 指数退避，最大30秒
-    this.binanceReconnectAttempts++;
-    
-    this.reconnectTimer = setTimeout(() => {
-      this.connectWebSocket().catch(error => {
-        this.emit('error', error);
-      });
-    }, delay);
-  }
-
-  /**
-   * 断开连接
-   */
-  async disconnect(): Promise<void> {
-    if (this.reconnectTimer) {
-      clearTimeout(this.reconnectTimer);
-      this.reconnectTimer = undefined;
-    }
-
-    if (this.ws) {
-      this.ws.close(1000, 'Normal closure');
-      this.ws = undefined;
-    }
-
-    this.status = AdapterStatus.DISCONNECTED;
-    this.emit('disconnected', 'Manual disconnect');
-  }
 
 
 
@@ -279,10 +128,11 @@ export class BinanceAdapter extends BaseAdapter {
     const streamName = this.buildStreamName(symbol, dataType);
     
     this.streamMap.set(subscriptionId, streamName);
-    this.activeStreams.add(streamName);
     
-    // 重新建立包含新流的连接
-    await this.reconnectWithStreams();
+    // 使用BinanceConnectionManager添加流
+    if (this.binanceConnectionManager) {
+      await this.binanceConnectionManager.addStream(streamName);
+    }
 
     return {
       id: subscriptionId,
@@ -300,48 +150,15 @@ export class BinanceAdapter extends BaseAdapter {
     const streamName = this.streamMap.get(subscription.id);
     if (streamName) {
       this.streamMap.delete(subscription.id);
-      this.activeStreams.delete(streamName);
       
-      // 重新建立不包含该流的连接
-      await this.reconnectWithStreams();
+      // 使用BinanceConnectionManager移除流
+      if (this.binanceConnectionManager) {
+        await this.binanceConnectionManager.removeStream(streamName);
+      }
     }
   }
 
-  /**
-   * 重新连接包含所有活跃流的WebSocket
-   */
-  private async reconnectWithStreams(): Promise<void> {
-    if (this.activeStreams.size === 0) {
-      return;
-    }
 
-    // 构建组合流URL
-    const streamArray = Array.from(this.activeStreams);
-    this.combinedStreamUrl = this.buildCombinedStreamUrl(streamArray);
-    
-    // 断开现有WebSocket连接
-    if (this.ws) {
-      this.ws.close(1000, 'Reconnecting with new streams');
-      this.ws = undefined;
-    }
-    
-    // 重新建立连接
-    await this.connectWebSocket();
-  }
-
-  /**
-   * 构建组合流URL
-   */
-  private buildCombinedStreamUrl(streams: string[]): string {
-    const baseUrl = this.getConfig().endpoints?.ws?.replace('/ws', '') || 'wss://stream.binance.com:9443';
-    if (streams.length === 1) {
-      return `${baseUrl}/ws/${streams[0]}`;
-    } else {
-      // 组合流格式
-      const streamParam = streams.join('/');
-      return `${baseUrl}/stream?streams=${streamParam}`;
-    }
-  }
 
   /**
    * 解析Binance消息
@@ -556,16 +373,40 @@ export function createBinanceAdapter(config?: BinanceConfig): BinanceAdapter {
   
   if (config) {
     // 设置默认的Binance配置
+    const defaultEndpoints = {
+      ws: config.binance?.testnet 
+        ? 'wss://testnet.binance.vision/ws'
+        : 'wss://stream.binance.com:9443/ws',
+      rest: config.binance?.testnet
+        ? 'https://testnet.binance.vision/api'
+        : 'https://api.binance.com/api'
+    };
+    
+    const defaultConnection = {
+      timeout: 10000,
+      maxRetries: 5,
+      retryInterval: 2000,
+      heartbeatInterval: 30000
+    };
+    
+    const defaultBinance = {
+      autoManageStreams: true
+    };
+    
     const defaultConfig: BinanceConfig = {
       ...config,
       exchange: 'binance',
       endpoints: {
-        ws: config.binance?.testnet 
-          ? 'wss://testnet.binance.vision/ws'
-          : 'wss://stream.binance.com:9443/ws',
-        rest: config.binance?.testnet
-          ? 'https://testnet.binance.vision/api'
-          : 'https://api.binance.com/api'
+        ...defaultEndpoints,
+        ...config.endpoints
+      },
+      connection: {
+        ...defaultConnection,
+        ...config.connection
+      },
+      binance: {
+        ...defaultBinance,
+        ...config.binance
       }
     };
 

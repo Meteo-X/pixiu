@@ -6,7 +6,7 @@
 export * from './base/adapter-integration';
 
 // 具体适配器实现
-export * from './binance/integration';
+export * from './binance/dataflow-integration';
 
 // 注册中心
 export * from './registry/adapter-registry';

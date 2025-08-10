@@ -66,17 +66,20 @@ describe('BinanceAdapter', () => {
     });
 
     it('应该能够建立连接', async () => {
-      // Mock the WebSocket connection method
-      (adapter as any).connectWebSocket = jest.fn().mockResolvedValue(undefined);
+      // Mock the connection manager
+      const mockConnectionManager = {
+        connect: jest.fn().mockResolvedValue(undefined),
+        getState: jest.fn().mockReturnValue('connected'),
+        isConnected: jest.fn().mockReturnValue(true),
+        on: jest.fn(),
+        emit: jest.fn()
+      };
+      (adapter as any).connectionManager = mockConnectionManager;
       
-      const connectPromise = adapter.connect();
-      
-      // Simulate connection success
-      (adapter as any).status = AdapterStatus.CONNECTED;
-      
-      await connectPromise;
+      await adapter.connect();
       
       expect(adapter.getStatus()).toBe(AdapterStatus.CONNECTED);
+      expect(mockConnectionManager.connect).toHaveBeenCalled();
     });
 
     it('应该能够断开连接', async () => {
@@ -103,8 +106,11 @@ describe('BinanceAdapter', () => {
     });
 
     it('应该能够订阅数据', async () => {
-      // Mock the reconnectWithStreams method to avoid actual WebSocket operations
-      (adapter as any).reconnectWithStreams = jest.fn().mockResolvedValue(undefined);
+      // Mock the binanceConnectionManager methods
+      const mockBinanceConnectionManager = {
+        addStream: jest.fn().mockResolvedValue(undefined)
+      };
+      (adapter as any).binanceConnectionManager = mockBinanceConnectionManager;
       
       const subscriptions = await adapter.subscribe({
         symbols: ['BTC/USDT'],
@@ -117,11 +123,16 @@ describe('BinanceAdapter', () => {
         dataType: DataType.TRADE,
         active: true
       });
+      expect(mockBinanceConnectionManager.addStream).toHaveBeenCalled();
     });
 
     it('应该能够取消订阅', async () => {
-      // Mock the reconnectWithStreams method to avoid actual WebSocket operations
-      (adapter as any).reconnectWithStreams = jest.fn().mockResolvedValue(undefined);
+      // Mock the binanceConnectionManager methods
+      const mockBinanceConnectionManager = {
+        addStream: jest.fn().mockResolvedValue(undefined),
+        removeStream: jest.fn().mockResolvedValue(undefined)
+      };
+      (adapter as any).binanceConnectionManager = mockBinanceConnectionManager;
       
       const subscriptions = await adapter.subscribe({
         symbols: ['BTC/USDT'],
@@ -132,11 +143,16 @@ describe('BinanceAdapter', () => {
       
       const activeSubscriptions = adapter.getSubscriptions();
       expect(activeSubscriptions).toHaveLength(0);
+      expect(mockBinanceConnectionManager.removeStream).toHaveBeenCalled();
     });
 
     it('应该能够取消所有订阅', async () => {
-      // Mock the reconnectWithStreams method to avoid actual WebSocket operations
-      (adapter as any).reconnectWithStreams = jest.fn().mockResolvedValue(undefined);
+      // Mock the binanceConnectionManager methods
+      const mockBinanceConnectionManager = {
+        addStream: jest.fn().mockResolvedValue(undefined),
+        removeStream: jest.fn().mockResolvedValue(undefined)
+      };
+      (adapter as any).binanceConnectionManager = mockBinanceConnectionManager;
       
       await adapter.subscribe({
         symbols: ['BTC/USDT', 'ETH/USDT'],

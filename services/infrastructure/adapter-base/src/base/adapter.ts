@@ -371,17 +371,104 @@ export abstract class BaseAdapter extends EventEmitter implements ExchangeAdapte
   /**
    * 处理错误
    */
-  private async handleError(error: Error, operation: string): Promise<void> {
+  private async handleError(error: Error, operation: string, context?: any): Promise<void> {
     try {
-      await this.errorHandler.handleError(error, {
+      // 更新错误统计
+      this.metrics.errorCount++;
+      
+      // 分类错误
+      const errorCategory = this.classifyError(error);
+      
+      const result = await this.errorHandler.handleError(error, {
         component: this.exchange,
         operation,
         timestamp: Date.now()
+      });
+      
+      if (result.strategy === RecoveryStrategy.RETRY && operation === 'connect') {
+        this.metrics.reconnectCount++;
+        setTimeout(() => {
+          this.connect().catch(() => {});
+        }, 5000);
+      }
+      
+      this.emit('error', {
+        error,
+        result,
+        category: errorCategory,
+        operation,
+        context
       });
     } catch (handlingError) {
       // 错误处理失败，直接发出错误事件
       this.emit('error', error);
     }
+  }
+
+  /**
+   * 分类错误
+   */
+  private classifyError(error: Error): string {
+    const message = error.message.toLowerCase();
+    
+    if (message.includes('network') || message.includes('econnreset') || message.includes('enotfound')) {
+      return 'network';
+    } else if (message.includes('429') || message.includes('rate limit')) {
+      return 'rateLimit';
+    } else if (message.includes('401') || message.includes('unauthorized') || message.includes('auth')) {
+      return 'authentication';
+    } else if (message.includes('json') || message.includes('parse') || message.includes('data')) {
+      return 'data';
+    } else {
+      return 'unknown';
+    }
+  }
+
+  /**
+   * 获取适配器状态摘要
+   */
+  getAdapterStatus(): {
+    status: AdapterStatus;
+    health: 'healthy' | 'degraded' | 'unhealthy';
+    performance: {
+      latency: number;
+      errorRate: number;
+      uptime: number;
+    };
+    connectivity: {
+      connected: boolean;
+      reconnectCount: number;
+      lastConnected?: number;
+    };
+  } {
+    const now = Date.now();
+    const uptime = this.metrics.connectedAt ? now - this.metrics.connectedAt : 0;
+    const totalMessages = this.metrics.messagesSent + this.metrics.messagesReceived;
+    const errorRate = totalMessages > 0 ? (this.metrics.errorCount / totalMessages) * 100 : 0;
+    
+    let health: 'healthy' | 'degraded' | 'unhealthy';
+    if (this.status === AdapterStatus.CONNECTED && errorRate < 1) {
+      health = 'healthy';
+    } else if (this.status === AdapterStatus.CONNECTED && errorRate < 5) {
+      health = 'degraded';
+    } else {
+      health = 'unhealthy';
+    }
+    
+    return {
+      status: this.status,
+      health,
+      performance: {
+        latency: this.metrics.averageLatency,
+        errorRate: Math.round(errorRate * 100) / 100,
+        uptime
+      },
+      connectivity: {
+        connected: this.status === AdapterStatus.CONNECTED,
+        reconnectCount: this.metrics.reconnectCount,
+        lastConnected: this.metrics.connectedAt
+      }
+    };
   }
 
   /**

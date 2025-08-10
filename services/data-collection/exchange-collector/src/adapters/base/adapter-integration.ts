@@ -1,11 +1,13 @@
 /**
  * 适配器集成基类
  * 处理适配器与exchange-collector服务的集成逻辑
+ * 重构：使用统一数据处理器
  */
 
 import { EventEmitter } from 'events';
 import { BaseErrorHandler, BaseMonitor, PubSubClientImpl } from '@pixiu/shared-core';
 import { ExchangeAdapter, MarketData, AdapterStatus } from '@pixiu/adapter-base';
+import { UnifiedDataProcessor } from '../../utils/data-processor';
 
 export interface IntegrationConfig {
   /** 适配器配置 */
@@ -57,6 +59,7 @@ export abstract class AdapterIntegration extends EventEmitter {
   protected metrics!: IntegrationMetrics;
   protected isInitialized = false;
   protected isRunning = false;
+  protected dataProcessor!: UnifiedDataProcessor;
   
   private messageBuffer: MarketData[] = [];
   private batchTimer?: NodeJS.Timeout;
@@ -80,6 +83,7 @@ export abstract class AdapterIntegration extends EventEmitter {
     this.pubsubClient = pubsubClient;
     this.monitor = monitor;
     this.errorHandler = errorHandler;
+    this.dataProcessor = new UnifiedDataProcessor(monitor);
 
     try {
       // 创建适配器实例
@@ -264,15 +268,16 @@ export abstract class AdapterIntegration extends EventEmitter {
         this.monitor.log('debug', `Processed ${this.metrics.messagesProcessed} messages, published ${this.metrics.messagesPublished}`);
       }
       
-      // 数据质量检查
-      if (!this.validateMarketData(marketData)) {
+      // 数据质量检查（使用统一处理器）
+      const validation = this.dataProcessor.validateMarketData(marketData);
+      if (!validation.isValid) {
         this.metrics.processingErrors++;
-        this.monitor.log('warn', `Invalid market data: ${JSON.stringify(marketData)}`);
+        this.monitor.log('warn', `Invalid market data: ${validation.errors.join(', ')}`);
         return;
       }
 
-      // 数据标准化
-      const normalizedData = this.normalizeMarketData(marketData);
+      // 数据标准化（使用统一处理器）
+      const normalizedData = this.dataProcessor.normalizeMarketData(marketData);
       
       // 添加到缓冲区或直接发布
       if (this.config.publishConfig.enableBatching) {
@@ -295,21 +300,19 @@ export abstract class AdapterIntegration extends EventEmitter {
 
   /**
    * 验证市场数据
+   * @deprecated 使用 dataProcessor.validateMarketData 代替
    */
   private validateMarketData(data: MarketData): boolean {
-    return !!(data.exchange && data.symbol && data.type && data.timestamp && data.data);
+    const validation = this.dataProcessor.validateMarketData(data);
+    return validation.isValid;
   }
 
   /**
    * 标准化市场数据
+   * @deprecated 使用 dataProcessor.normalizeMarketData 代替
    */
   private normalizeMarketData(data: MarketData): MarketData {
-    return {
-      ...data,
-      exchange: data.exchange.toLowerCase(),
-      symbol: data.symbol.toUpperCase(),
-      receivedAt: data.receivedAt || Date.now()
-    };
+    return this.dataProcessor.normalizeMarketData(data);
   }
 
   /**
@@ -416,44 +419,22 @@ export abstract class AdapterIntegration extends EventEmitter {
    * 根据市场数据构建主题名称
    */
   private buildTopicNameFromData(data: MarketData): string {
-    const dataTypeName = this.getDataTypeName(data.type);
-    return `${this.config.publishConfig.topicPrefix}-${dataTypeName}-${this.getExchangeName()}`;
+    return this.dataProcessor.buildTopicName(this.config.publishConfig.topicPrefix, data, 'by_type');
   }
 
   /**
    * 获取数据类型名称
+   * @deprecated 使用 dataProcessor.buildTopicName 代替
    */
   private getDataTypeName(dataType: string): string {
-    // 将枚举值转换为topic名称
-    switch (dataType) {
-      case 'trade':
-        return 'trade';
-      case 'ticker':
-        return 'ticker';
-      case 'kline_1m':
-      case 'kline_5m':
-      case 'kline_1h':
-      case 'kline_1d':
-        return 'kline';
-      case 'depth':
-      case 'orderbook':
-        return 'depth';
-      default:
-        return dataType.toLowerCase();
-    }
+    return this.dataProcessor.normalizeDataType(dataType);
   }
 
   /**
    * 构建消息属性
    */
   private buildMessageAttributes(data: MarketData): Record<string, string> {
-    return {
-      exchange: data.exchange,
-      symbol: data.symbol,
-      type: data.type,
-      timestamp: data.timestamp.toString(),
-      source: 'exchange-collector'
-    };
+    return this.dataProcessor.buildMessageAttributes(data, 'exchange-collector');
   }
 
   /**

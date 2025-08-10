@@ -4,7 +4,7 @@
  */
 
 import { BaseErrorHandler, BaseMonitor, PubSubClientImpl, globalCache } from '@pixiu/shared-core';
-import { configManager } from './config/service-config';
+import { getExchangeCollectorConfigManager } from './config/unified-config';
 import { AdapterRegistry } from './adapters/registry/adapter-registry';
 import { IntegrationConfig } from './adapters/base/adapter-integration';
 import express = require('express');
@@ -33,6 +33,7 @@ export class ExchangeCollectorService {
   private statsReporter!: StatsReporter;
   private webSocketServer!: CollectorWebSocketServer;
   private dataStreamCache!: DataStreamCache;
+  private configManager = getExchangeCollectorConfigManager();
   private isShuttingDown = false;
 
   constructor() {
@@ -45,8 +46,7 @@ export class ExchangeCollectorService {
   async initialize(): Promise<void> {
     try {
       // 加载配置
-      await configManager.load();
-      const config = configManager.getConfig();
+      const config = await this.configManager.initialize();
       if (!config) {
         throw new Error('Failed to load configuration');
       }
@@ -108,7 +108,7 @@ export class ExchangeCollectorService {
             metricsInterval: config.monitoring.metricsInterval
           }
         },
-        autoStart: configManager.getEnabledAdapters(),
+        autoStart: this.configManager.getEnabledAdapters(),
         monitoring: {
           enableHealthCheck: config.monitoring.enableHealthCheck,
           healthCheckInterval: config.monitoring.healthCheckInterval,
@@ -150,7 +150,7 @@ export class ExchangeCollectorService {
    */
   async start(): Promise<void> {
     try {
-      const config = configManager.getConfig();
+      const config = this.configManager.getCurrentConfig();
       if (!config) {
         throw new Error('Configuration not loaded');
       }
@@ -302,7 +302,7 @@ export class ExchangeCollectorService {
    * 启动适配器
    */
   private async startAdapters(): Promise<void> {
-    const config = configManager.getConfig();
+    const config = this.configManager.getCurrentConfig();
     if (!config) {
       return;
     }

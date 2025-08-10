@@ -3,108 +3,138 @@
  * 导出所有 WebSocket 相关的类和接口
  */
 
+// 兼容的旧版本导出
 export { 
   CollectorWebSocketServer, 
   WebSocketMessage, 
   ConnectionInfo 
 } from './websocket-server';
 
-export { 
-  WebSocketConnectionPool, 
-  PooledConnection, 
-  ConnectionPoolConfig, 
-  ConnectionPoolStats 
-} from './connection-pool';
+// 新版本WebSocket代理导出
+export {
+  WebSocketProxy,
+  SubscriptionManager,
+  ProxyMessage,
+  ClientConnection,
+  SubscriptionFilter,
+  ConnectionStats,
+  HealthStatus
+} from './websocket-proxy';
 
-export { 
-  WebSocketMessageHandler, 
-  MessageHandlerConfig, 
-  ClientSession 
-} from './message-handler';
+// 连接池管理器导出
+export {
+  ConnectionPoolManager,
+  PooledConnection,
+  PoolConfig,
+  PoolStats
+} from './connection-pool-manager';
+
+// 保持向后兼容性的导出别名
+export { ConnectionPoolManager as WebSocketConnectionPool } from './connection-pool-manager';
+export type { PoolConfig as ConnectionPoolConfig, PoolStats as ConnectionPoolStats } from './connection-pool-manager';
 
 // 工厂函数
 import { Server } from 'http';
 import { BaseMonitor } from '@pixiu/shared-core';
-import { AdapterRegistry } from '../adapters/registry/adapter-registry';
 import { CollectorWebSocketServer } from './websocket-server';
-import { ConnectionPoolConfig } from './connection-pool';
-import { MessageHandlerConfig } from './message-handler';
+import { WebSocketProxy } from './websocket-proxy';
+import { PoolConfig } from './connection-pool-manager';
 
 /**
- * 创建并配置 WebSocket 服务器
+ * 创建传统WebSocket服务器（兼容模式）
+ * @deprecated 推荐使用 createWebSocketProxy
  */
 export function createWebSocketServer(
   httpServer: Server,
   monitor: BaseMonitor,
-  adapterRegistry: AdapterRegistry,
+  adapterRegistry?: any,
   options?: {
-    connectionPool?: Partial<ConnectionPoolConfig>;
-    messageHandler?: Partial<MessageHandlerConfig>;
+    connectionPool?: Partial<PoolConfig>;
   }
 ): CollectorWebSocketServer {
-  
-  // 默认连接池配置
-  const defaultPoolConfig: ConnectionPoolConfig = {
-    maxConnections: 1000,
-    idleTimeout: 300000, // 5分钟
-    cleanupInterval: 60000, // 1分钟
-    enableMetrics: true
-  };
-
-  // 默认消息处理配置
-  const defaultHandlerConfig: MessageHandlerConfig = {
-    enableRateLimit: true,
-    maxMessagesPerMinute: 60,
-    enableMessageValidation: true,
-    logAllMessages: false
-  };
-
-  const poolConfig = { ...defaultPoolConfig, ...options?.connectionPool };
-  const handlerConfig = { ...defaultHandlerConfig, ...options?.messageHandler };
-
-  // 创建 WebSocket 服务器
   const wsServer = new CollectorWebSocketServer(
     httpServer,
     monitor,
     adapterRegistry
   );
 
-  monitor.log('info', 'WebSocket server created and configured', {
-    poolConfig,
-    handlerConfig
+  monitor.log('info', 'WebSocket server created (compatibility mode)', {
+    options
   });
 
   return wsServer;
 }
 
 /**
- * WebSocket 服务器配置接口
+ * 创建新版WebSocket代理服务器（推荐）
  */
-export interface WebSocketServerConfig {
-  connectionPool: ConnectionPoolConfig;
-  messageHandler: MessageHandlerConfig;
-  enableHeartbeat: boolean;
-  heartbeatInterval: number;
-  connectionTimeout: number;
+export function createWebSocketProxy(
+  httpServer: Server,
+  monitor: BaseMonitor,
+  options?: {
+    heartbeatInterval?: number;
+    connectionTimeout?: number;
+    maxConnections?: number;
+    poolConfig?: Partial<PoolConfig>;
+  }
+): WebSocketProxy {
+  const proxy = new WebSocketProxy(httpServer, monitor, options);
+  
+  monitor.log('info', 'WebSocket proxy created', {
+    options
+  });
+  
+  return proxy;
 }
 
 /**
- * 默认 WebSocket 服务器配置
+ * WebSocket代理服务器配置接口
+ */
+export interface WebSocketProxyConfig {
+  heartbeatInterval: number;
+  connectionTimeout: number;
+  maxConnections: number;
+  poolConfig: PoolConfig;
+}
+
+/**
+ * 默认WebSocket代理配置
+ */
+export const DEFAULT_PROXY_CONFIG: WebSocketProxyConfig = {
+  heartbeatInterval: 30000, // 30秒
+  connectionTimeout: 60000, // 60秒
+  maxConnections: 1000,
+  poolConfig: {
+    maxConnections: 1000,
+    connectionTimeout: 60000,
+    maxMessageBufferSize: 100,
+    maxBytesPerBuffer: 1024 * 1024, // 1MB
+    flushInterval: 1000, // 1秒
+    enableBatching: true,
+    batchSize: 10,
+    compressionEnabled: false,
+    memoryThreshold: 512 // 512MB
+  }
+};
+
+/**
+ * WebSocket服务器配置接口（兼容模式）
+ * @deprecated 使用 WebSocketProxyConfig
+ */
+export interface WebSocketServerConfig {
+  enableHeartbeat: boolean;
+  heartbeatInterval: number;
+  connectionTimeout: number;
+  maxConnections: number;
+}
+
+/**
+ * 默认WebSocket服务器配置（兼容模式）
+ * @deprecated 使用 DEFAULT_PROXY_CONFIG
  */
 export const DEFAULT_WEBSOCKET_CONFIG: WebSocketServerConfig = {
-  connectionPool: {
-    maxConnections: 1000,
-    idleTimeout: 300000,
-    cleanupInterval: 60000,
-    enableMetrics: true
-  },
-  messageHandler: {
-    enableRateLimit: true,
-    maxMessagesPerMinute: 60,
-    enableMessageValidation: true,
-    logAllMessages: false
-  },
   enableHeartbeat: true,
   heartbeatInterval: 30000,
-  connectionTimeout: 60000
+  connectionTimeout: 60000,
+  maxConnections: 1000
 };

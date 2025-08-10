@@ -1,0 +1,44 @@
+{
+  "name": "base-connection-manager-integration-tests",
+  "version": "1.0.0",
+  "description": "Comprehensive test suite for BaseConnectionManager integration functionality",
+  "scripts": {
+    "test": "jest --config jest.config.js --detectOpenHandles --forceExit",
+    "test:watch": "jest --watch --config jest.config.js",
+    "test:coverage": "jest --coverage --config jest.config.js --detectOpenHandles --forceExit",
+    "test:verbose": "jest --verbose --config jest.config.js --detectOpenHandles --forceExit",
+    "test:connection": "jest --testPathPattern='connection' --config jest.config.js --detectOpenHandles --forceExit",
+    "test:error-handling": "jest --testPathPattern='error-handling' --config jest.config.js --detectOpenHandles --forceExit",
+    "test:performance": "jest --testPathPattern='performance' --config jest.config.js --detectOpenHandles --forceExit",
+    "test:integration": "jest --testPathPattern='integration' --config jest.config.js --detectOpenHandles --forceExit",
+    "test:stress": "jest --testPathPattern='stress' --config jest.config.js --detectOpenHandles --forceExit --timeout=120000",
+    "clean": "rimraf coverage dist reports",
+    "setup": "npm install"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.5",
+    "@types/node": "^20.6.0",
+    "@types/ws": "^8.5.5",
+    "jest": "^29.7.0",
+    "rimraf": "^5.0.1",
+    "ts-jest": "^29.1.1",
+    "typescript": "^5.2.2",
+    "ws": "^8.14.2"
+  },
+  "dependencies": {
+    "@pixiu/adapter-base": "file:../../services/infrastructure/adapter-base",
+    "@pixiu/binance-adapter": "file:../../services/adapters/binance-adapter",
+    "@pixiu/shared-core": "file:../../services/infrastructure/shared-core"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "pixiu",
+    "connection-manager",
+    "binance",
+    "websocket",
+    "integration-test",
+    "acceptance-test"
+  ]
+}

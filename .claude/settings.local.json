@@ -56,7 +56,11 @@
       "Bash(docker stop:*)",
       "Bash(docker rm:*)",
       "Bash(docker exec:*)",
-      "Bash(docker tag:*)"
+      "Bash(docker tag:*)",
+      "Bash(./run-tests.sh:*)",
+      "Bash(tree:*)",
+      "Bash(npx depcheck:*)",
+      "Bash(npx ts-unused-exports:*)"
     ],
     "deny": []
   }

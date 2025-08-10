@@ -24,17 +24,7 @@ jest.mock('@google-cloud/pubsub', () => ({
   }))
 }));
 
-// Mock Redis
-jest.mock('redis', () => ({
-  createClient: jest.fn().mockReturnValue({
-    connect: jest.fn().mockResolvedValue(undefined),
-    disconnect: jest.fn().mockResolvedValue(undefined),
-    get: jest.fn().mockResolvedValue(null),
-    set: jest.fn().mockResolvedValue('OK'),
-    setex: jest.fn().mockResolvedValue('OK'),
-    del: jest.fn().mockResolvedValue(1)
-  })
-}));
+// Mock Redis (removed as dependency was cleaned up)
 
 // 设置测试环境变量
 process.env.NODE_ENV = 'test';

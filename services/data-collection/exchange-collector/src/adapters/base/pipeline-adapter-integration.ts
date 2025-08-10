@@ -1,41 +1,55 @@
 /**
- * 基于管道的适配器集成实现
- * 使用新的数据管道系统重构数据处理逻辑
+ * 基于数据流管道的适配器集成实现
+ * 使用统一的DataFlowManager系统重构数据处理逻辑
  */
 
 import { EventEmitter } from 'events';
-import { BaseErrorHandler, BaseMonitor, PubSubClientImpl } from '@pixiu/shared-core';
+import { BaseErrorHandler, BaseMonitor } from '@pixiu/shared-core';
 import { ExchangeAdapter, MarketData, AdapterStatus } from '@pixiu/adapter-base';
-import { ExchangeDataPipeline, ExchangeDataPipelineFactory } from '../../pipeline/exchange-data-pipeline';
-import { IntegrationConfig, IntegrationMetrics } from './adapter-integration';
+import { DataFlowManager, IDataFlowManager } from '../../dataflow';
 
 /**
  * 管道集成配置
  */
-export interface PipelineIntegrationConfig extends IntegrationConfig {
-  /** 管道配置 */
-  pipelineConfig: {
-    enableBuffering: boolean;
-    bufferSize: number;
-    batchTimeout: number;
-    enableRouting: boolean;
-    routingRules?: any[];
-    partitionBy?: 'exchange' | 'symbol' | 'dataType';
+export interface PipelineIntegrationConfig {
+  /** 适配器配置 */
+  adapterConfig: any;
+  /** 监控配置 */
+  monitoringConfig: {
+    enableMetrics: boolean;
+    enableHealthCheck: boolean;
+    metricsInterval: number;
   };
 }
 
+export interface PipelineIntegrationMetrics {
+  /** 适配器状态 */
+  adapterStatus: AdapterStatus;
+  /** 处理的消息数 */
+  messagesProcessed: number;
+  /** 发送到管道的消息数 */
+  messagesSentToPipeline: number;
+  /** 处理错误数 */
+  processingErrors: number;
+  /** 平均处理延迟 */
+  averageProcessingLatency: number;
+  /** 数据质量分数 */
+  dataQualityScore: number;
+  /** 最后活动时间 */
+  lastActivity: number;
+}
+
 /**
- * 基于管道的适配器集成基类
+ * 基于DataFlowManager的适配器集成基类
  */
 export abstract class PipelineAdapterIntegration extends EventEmitter {
   protected adapter!: ExchangeAdapter;
   protected config!: PipelineIntegrationConfig;
-  protected pubsubClient!: PubSubClientImpl;
+  protected dataFlowManager!: IDataFlowManager;
   protected monitor!: BaseMonitor;
   protected errorHandler!: BaseErrorHandler;
-  protected dataPipeline!: ExchangeDataPipeline;
   
-  protected metrics!: IntegrationMetrics;
+  protected metrics!: PipelineIntegrationMetrics;
   protected isInitialized = false;
   protected isRunning = false;
   private metricsTimer?: NodeJS.Timeout;
@@ -50,12 +64,12 @@ export abstract class PipelineAdapterIntegration extends EventEmitter {
    */
   async initialize(
     config: PipelineIntegrationConfig,
-    pubsubClient: PubSubClientImpl,
+    dataFlowManager: IDataFlowManager,
     monitor: BaseMonitor,
     errorHandler: BaseErrorHandler
   ): Promise<void> {
     this.config = config;
-    this.pubsubClient = pubsubClient;
+    this.dataFlowManager = dataFlowManager;
     this.monitor = monitor;
     this.errorHandler = errorHandler;
 
@@ -63,15 +77,8 @@ export abstract class PipelineAdapterIntegration extends EventEmitter {
       // 创建适配器实例
       this.adapter = await this.createAdapter(config.adapterConfig);
       
-      // 创建数据管道
-      this.dataPipeline = this.createDataPipeline();
-      await this.dataPipeline.initialize();
-      
       // 设置适配器事件处理
       this.setupAdapterEvents();
-      
-      // 设置管道事件处理
-      this.setupPipelineEvents();
       
       // 注册健康检查
       this.registerHealthCheck();
@@ -84,9 +91,7 @@ export abstract class PipelineAdapterIntegration extends EventEmitter {
       
       this.monitor.log('info', 'Pipeline adapter integration initialized', {
         exchange: this.getExchangeName(),
-        pipelineId: this.dataPipeline.getMetrics().id,
-        enableBuffering: config.pipelineConfig.enableBuffering,
-        enableRouting: config.pipelineConfig.enableRouting
+        config: this.config
       });
     } catch (error) {
       await this.handleError(error as Error, 'initialize');
@@ -107,9 +112,6 @@ export abstract class PipelineAdapterIntegration extends EventEmitter {
     }
 
     try {
-      // 启动数据管道
-      await this.dataPipeline.start();
-      
       // 连接适配器
       await this.adapter.connect();
       
@@ -123,8 +125,7 @@ export abstract class PipelineAdapterIntegration extends EventEmitter {
       this.emit('started');
       
       this.monitor.log('info', 'Pipeline adapter integration started', {
-        exchange: this.getExchangeName(),
-        pipelineId: this.dataPipeline.getMetrics().id
+        exchange: this.getExchangeName()
       });
     } catch (error) {
       await this.handleError(error as Error, 'start');
@@ -143,9 +144,6 @@ export abstract class PipelineAdapterIntegration extends EventEmitter {
     try {
       // 停止指标收集
       this.stopMetricsCollection();
-      
-      // 停止数据管道
-      await this.dataPipeline.stop();
       
       // 断开适配器连接
       await this.adapter.disconnect();
@@ -169,10 +167,6 @@ export abstract class PipelineAdapterIntegration extends EventEmitter {
     try {
       await this.stop();
       
-      if (this.dataPipeline) {
-        await this.dataPipeline.destroy();
-      }
-      
       if (this.adapter) {
         await this.adapter.destroy();
       }
@@ -186,24 +180,8 @@ export abstract class PipelineAdapterIntegration extends EventEmitter {
   /**
    * 获取集成指标
    */
-  getMetrics(): IntegrationMetrics {
-    const pipelineMetrics = this.dataPipeline?.getMetrics();
-    
-    if (pipelineMetrics) {
-      // 合并管道指标和适配器指标
-      this.metrics.messagesProcessed = pipelineMetrics.totalProcessed;
-      this.metrics.processingErrors = pipelineMetrics.totalErrors;
-      this.metrics.averageProcessingLatency = pipelineMetrics.averageLatency;
-    }
-    
+  getMetrics(): PipelineIntegrationMetrics {
     return { ...this.metrics };
-  }
-
-  /**
-   * 获取管道指标
-   */
-  getPipelineMetrics() {
-    return this.dataPipeline?.getMetrics();
   }
 
   /**
@@ -217,13 +195,9 @@ export abstract class PipelineAdapterIntegration extends EventEmitter {
    * 检查是否健康
    */
   isHealthy(): boolean {
-    const adapterHealthy = this.isRunning && 
-                          this.adapter?.getStatus() === AdapterStatus.CONNECTED &&
-                          (Date.now() - this.metrics.lastActivity) < 60000;
-    
-    const pipelineHealthy = this.dataPipeline?.isHealthy() || false;
-    
-    return adapterHealthy && pipelineHealthy;
+    return this.isRunning && 
+           this.adapter?.getStatus() === AdapterStatus.CONNECTED &&
+           (Date.now() - this.metrics.lastActivity) < 60000; // 1分钟内有活动
   }
 
   // 抽象方法，由子类实现
@@ -231,43 +205,6 @@ export abstract class PipelineAdapterIntegration extends EventEmitter {
   protected abstract getExchangeName(): string;
   protected abstract startSubscriptions(): Promise<void>;
 
-  /**
-   * 创建数据管道
-   */
-  private createDataPipeline(): ExchangeDataPipeline {
-    const pipelineConfig = this.config.pipelineConfig;
-    
-    if (pipelineConfig.enableRouting && pipelineConfig.routingRules) {
-      // 创建路由管道
-      return ExchangeDataPipelineFactory.createRoutingPipeline({
-        id: `${this.getExchangeName()}-routing-pipeline`,
-        name: `${this.getExchangeName()} Routing Pipeline`,
-        pubsubClient: this.pubsubClient,
-        topicPrefix: this.config.publishConfig.topicPrefix,
-        routingRules: pipelineConfig.routingRules
-      }, this.monitor, this.errorHandler);
-    } else if (pipelineConfig.enableBuffering) {
-      // 创建缓冲管道
-      return ExchangeDataPipelineFactory.createBufferedPipeline({
-        id: `${this.getExchangeName()}-buffered-pipeline`,
-        name: `${this.getExchangeName()} Buffered Pipeline`,
-        pubsubClient: this.pubsubClient,
-        topicPrefix: this.config.publishConfig.topicPrefix,
-        bufferSize: pipelineConfig.bufferSize,
-        batchTimeout: pipelineConfig.batchTimeout,
-        partitionBy: pipelineConfig.partitionBy || 'symbol'
-      }, this.monitor, this.errorHandler);
-    } else {
-      // 创建标准管道
-      return ExchangeDataPipelineFactory.createStandardPipeline({
-        id: `${this.getExchangeName()}-standard-pipeline`,
-        name: `${this.getExchangeName()} Standard Pipeline`,
-        pubsubClient: this.pubsubClient,
-        topicPrefix: this.config.publishConfig.topicPrefix,
-        enableBuffering: false
-      }, this.monitor, this.errorHandler);
-    }
-  }
 
   /**
    * 设置适配器事件处理
@@ -301,32 +238,9 @@ export abstract class PipelineAdapterIntegration extends EventEmitter {
     });
   }
 
-  /**
-   * 设置管道事件处理
-   */
-  private setupPipelineEvents(): void {
-    this.dataPipeline.on('processed', (data) => {
-      this.metrics.messagesPublished++;
-      this.emit('dataProcessed', data);
-    });
-
-    this.dataPipeline.on('processingError', (error, data) => {
-      this.metrics.processingErrors++;
-      this.emit('processingError', error, data);
-    });
-
-    this.dataPipeline.on('stageError', (error, stage, data) => {
-      this.monitor.log('warn', 'Pipeline stage error', {
-        exchange: this.getExchangeName(),
-        stageName: stage.name,
-        error: error.message,
-        dataId: data.id
-      });
-    });
-  }
 
   /**
-   * 处理市场数据
+   * 处理市场数据 - 核心重构点
    */
   private async processMarketData(marketData: MarketData): Promise<void> {
     try {
@@ -336,18 +250,42 @@ export abstract class PipelineAdapterIntegration extends EventEmitter {
       this.metrics.messagesProcessed++;
       this.metrics.lastActivity = Date.now();
       
-      // 使用管道处理数据
-      await this.dataPipeline.process(marketData, this.getExchangeName());
+      // 添加调试日志（每100条消息记录一次）
+      if (this.metrics.messagesProcessed % 100 === 0) {
+        this.monitor.log('debug', `Processed ${this.metrics.messagesProcessed} messages from ${this.getExchangeName()}`);
+      }
+      
+      // 基本数据验证
+      if (!this.validateMarketData(marketData)) {
+        this.metrics.processingErrors++;
+        this.monitor.log('warn', `Invalid market data from ${this.getExchangeName()}: ${JSON.stringify(marketData)}`);
+        return;
+      }
+
+      // 发送数据到数据流管道（替代直接的Pub/Sub发布）
+      await this.dataFlowManager.processData(marketData, this.getExchangeName());
+      
+      this.metrics.messagesSentToPipeline++;
       
       // 更新处理延迟
       const processingTime = Date.now() - startTime;
       this.updateProcessingLatency(processingTime);
       
-      this.emit('dataReceived', marketData);
+      // 发送处理完成事件（保持向后兼容性）
+      this.emit('dataProcessed', marketData);
+      
     } catch (error) {
       this.metrics.processingErrors++;
+      this.monitor.log('error', `Error processing market data from ${this.getExchangeName()}: ${error}`);
       await this.handleError(error as Error, 'processMarketData');
     }
+  }
+
+  /**
+   * 验证市场数据
+   */
+  private validateMarketData(data: MarketData): boolean {
+    return !!(data.exchange && data.symbol && data.type && data.timestamp && data.data);
   }
 
   /**
@@ -358,18 +296,13 @@ export abstract class PipelineAdapterIntegration extends EventEmitter {
       name: `pipeline-adapter-${this.getExchangeName()}`,
       check: async () => {
         const isHealthy = this.isHealthy();
-        const pipelineMetrics = this.getPipelineMetrics();
-        
         return {
           name: `pipeline-adapter-${this.getExchangeName()}`,
           status: isHealthy ? 'healthy' : 'unhealthy',
           message: isHealthy ? 'Pipeline adapter is running normally' : 'Pipeline adapter is not healthy',
           timestamp: Date.now(),
           duration: 0,
-          metadata: {
-            adapter: this.getMetrics(),
-            pipeline: pipelineMetrics
-          }
+          metadata: this.getMetrics()
         };
       },
       interval: 30000,
@@ -381,8 +314,7 @@ export abstract class PipelineAdapterIntegration extends EventEmitter {
   /**
    * 注册指标
    */
-  private registerMetrics(): void {
-    
+  private registerMetrics(): void {    
     this.monitor.registerMetric({
       name: `pipeline_adapter_messages_processed_total`,
       description: 'Total number of messages processed by pipeline adapter',
@@ -391,15 +323,15 @@ export abstract class PipelineAdapterIntegration extends EventEmitter {
     });
     
     this.monitor.registerMetric({
-      name: `pipeline_adapter_messages_published_total`,
-      description: 'Total number of messages published by pipeline adapter',
+      name: `pipeline_adapter_messages_sent_to_pipeline_total`,
+      description: 'Total number of messages sent to data flow pipeline',
       type: 'counter',
       labels: ['exchange']
     });
     
     this.monitor.registerMetric({
       name: `pipeline_adapter_processing_latency_ms`,
-      description: 'Processing latency in milliseconds',
+      description: 'Processing latency in milliseconds for pipeline adapter',
       type: 'histogram',
       labels: ['exchange']
     });
@@ -442,7 +374,7 @@ export abstract class PipelineAdapterIntegration extends EventEmitter {
     const exchangeName = this.getExchangeName();
     
     this.monitor.updateMetric('pipeline_adapter_messages_processed_total', this.metrics.messagesProcessed, { exchange: exchangeName });
-    this.monitor.updateMetric('pipeline_adapter_messages_published_total', this.metrics.messagesPublished, { exchange: exchangeName });
+    this.monitor.updateMetric('pipeline_adapter_messages_sent_to_pipeline_total', this.metrics.messagesSentToPipeline, { exchange: exchangeName });
     this.monitor.updateMetric('pipeline_adapter_status', this.getStatusNumber(this.metrics.adapterStatus), { exchange: exchangeName });
   }
 
@@ -483,9 +415,8 @@ export abstract class PipelineAdapterIntegration extends EventEmitter {
     this.metrics = {
       adapterStatus: AdapterStatus.DISCONNECTED,
       messagesProcessed: 0,
-      messagesPublished: 0,
+      messagesSentToPipeline: 0,
       processingErrors: 0,
-      publishErrors: 0,
       averageProcessingLatency: 0,
       dataQualityScore: 1.0,
       lastActivity: Date.now()

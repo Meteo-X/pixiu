@@ -1,0 +1,36 @@
+{
+  "name": "@pixiu/refactor-test-strategy",
+  "version": "1.0.0",
+  "description": "Exchange Collector重构测试策略执行套件",
+  "main": "index.js",
+  "scripts": {
+    "test": "jest",
+    "test:regression": "jest --testPathPattern=regression",
+    "test:performance": "jest --testPathPattern=performance",
+    "test:integration": "jest --testPathPattern=integration",
+    "test:unit": "jest --testPathPattern=unit",
+    "test:risk-mitigation": "jest --testPathPattern=risk-mitigation",
+    "test:phase1": "jest --testPathPattern=phase1",
+    "test:phase2": "jest --testPathPattern=phase2",
+    "test:phase3": "jest --testPathPattern=phase3",
+    "test:comprehensive": "jest --verbose --coverage",
+    "test:watch": "jest --watch",
+    "test:report": "jest --coverage --coverageReporters=html && node scripts/generate-report.js"
+  },
+  "dependencies": {
+    "@pixiu/shared-core": "^1.0.0",
+    "@pixiu/adapter-base": "^1.0.0",
+    "@pixiu/binance-adapter": "^1.0.0",
+    "ws": "^8.16.0",
+    "@google-cloud/pubsub": "^4.0.7",
+    "winston": "^3.11.0"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.11",
+    "@types/node": "^20.10.5",
+    "@types/ws": "^8.5.10",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.1.1",
+    "typescript": "^5.3.3"
+  }
+}

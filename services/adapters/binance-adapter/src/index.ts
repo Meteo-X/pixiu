@@ -4,6 +4,7 @@
  */
 
 export * from './binance-adapter';
+export * from './connection/binance-connection-manager';
 
 // 重新导出基础类型，方便使用
 export {

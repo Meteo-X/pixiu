@@ -1,7 +1,6 @@
 import { WebSocketServer, WebSocket, RawData } from 'ws';
 import { Server } from 'http';
 import { BaseMonitor } from '@pixiu/shared-core';
-import { AdapterRegistry } from '../adapters/registry/adapter-registry';
 
 export interface WebSocketMessage {
   type: string;
@@ -18,8 +17,9 @@ export interface ConnectionInfo {
 }
 
 /**
- * Exchange Collector WebSocket 服务器
- * 负责处理前端实时连接和数据推送
+ * Exchange Collector WebSocket 服务器 (已重构为兼容模式)
+ * 保持向后兼容性，实际功能由WebSocketProxy处理
+ * @deprecated 请使用 WebSocketProxy 代替
  */
 export class CollectorWebSocketServer {
   private wss: WebSocketServer;
@@ -32,7 +32,8 @@ export class CollectorWebSocketServer {
   constructor(
     server: Server,
     private monitor: BaseMonitor,
-    private adapterRegistry: AdapterRegistry
+    // 移除 AdapterRegistry 依赖，保持兼容性
+    private adapterRegistry?: any
   ) {
     this.wss = new WebSocketServer({ 
       server, 
@@ -43,7 +44,7 @@ export class CollectorWebSocketServer {
     this.setupEventHandlers();
     this.startHeartbeat();
     
-    this.monitor.log('info', 'WebSocket server initialized', {
+    this.monitor.log('info', 'WebSocket server initialized (compatibility mode)', {
       path: '/ws'
     });
   }
@@ -361,7 +362,8 @@ export class CollectorWebSocketServer {
   }
 
   /**
-   * 广播市场数据
+   * 广播市场数据 (兼容模式)
+   * @deprecated 使用 WebSocketProxy.forwardMessage 代替
    */
   broadcastMarketData(data: any): void {
     this.broadcast({
@@ -371,7 +373,8 @@ export class CollectorWebSocketServer {
   }
 
   /**
-   * 广播连接状态更新
+   * 广播连接状态更新 (兼容模式)
+   * @deprecated 使用 WebSocketProxy.forwardMessage 代替
    */
   broadcastConnectionStatus(status: any): void {
     this.broadcast({
@@ -381,7 +384,8 @@ export class CollectorWebSocketServer {
   }
 
   /**
-   * 广播系统指标
+   * 广播系统指标 (兼容模式)
+   * @deprecated 使用 WebSocketProxy.forwardMessage 代替
    */
   broadcastMetrics(metrics: any): void {
     this.broadcast({
@@ -452,13 +456,13 @@ export class CollectorWebSocketServer {
     const connections = Array.from(this.connections.values());
     const now = Date.now();
     
-    // 获取适配器状态
-    const adapters = this.adapterRegistry.getAllInstances();
-    const adapterStats = Array.from(adapters.entries()).map(([name, adapter]) => ({
-      name,
-      status: adapter.getAdapterStatus(),
-      metrics: adapter.getMetrics()
-    }));
+    // 简化的适配器状态（兼容模式）
+    const adapterStats = this.adapterRegistry ? 
+      Array.from(this.adapterRegistry.getAllInstances?.() || new Map()).map(([name, adapter]) => ({
+        name,
+        status: adapter?.getAdapterStatus?.() || 'unknown',
+        metrics: adapter?.getMetrics?.() || {}
+      })) : [];
     
     return {
       connections: {

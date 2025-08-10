@@ -1,0 +1,75 @@
+{
+  "name": "@pixiu/websocket-proxy-acceptance-tests",
+  "version": "1.0.0",
+  "description": "WebSocket代理功能全面测试套件 - 连接管理、消息转发、性能验证",
+  "main": "index.js",
+  "scripts": {
+    "test": "jest --config=jest.config.js",
+    "test:watch": "jest --config=jest.config.js --watch",
+    "test:coverage": "jest --config=jest.config.js --coverage",
+    "test:verbose": "jest --config=jest.config.js --verbose",
+    "test:connection": "jest --config=jest.config.js --testPathPattern=connection",
+    "test:forwarding": "jest --config=jest.config.js --testPathPattern=forwarding",
+    "test:subscription": "jest --config=jest.config.js --testPathPattern=subscription",
+    "test:performance": "jest --config=jest.config.js --testPathPattern=performance",
+    "test:fault-tolerance": "jest --config=jest.config.js --testPathPattern=fault",
+    "test:integration": "jest --config=jest.config.js --testPathPattern=integration",
+    "test:e2e": "jest --config=jest.config.js --testPathPattern=e2e",
+    "test:sequential": "jest --config=jest.config.js --runInBand",
+    "run-tests": "./run-tests.sh",
+    "clean": "rm -rf coverage logs reports",
+    "prepare": "npm run clean"
+  },
+  "keywords": [
+    "websocket",
+    "proxy",
+    "acceptance-tests",
+    "connection-management",
+    "message-forwarding",
+    "subscription-filtering",
+    "performance-testing",
+    "fault-tolerance"
+  ],
+  "author": "Pixiu Team",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/jest": "^29.5.0",
+    "@types/node": "^18.15.0",
+    "@types/ws": "^8.5.0",
+    "@types/express": "^4.17.17",
+    "jest": "^29.5.0",
+    "ts-jest": "^29.1.0",
+    "typescript": "^5.0.0",
+    "ws": "^8.13.0",
+    "express": "^4.18.0"
+  },
+  "dependencies": {
+    "@pixiu/shared-core": "file:../../services/infrastructure/shared-core",
+    "@pixiu/exchange-collector": "file:../../services/data-collection/exchange-collector"
+  },
+  "jest": {
+    "preset": "ts-jest",
+    "testEnvironment": "node",
+    "testMatch": [
+      "**/tests/**/*.test.ts"
+    ],
+    "collectCoverageFrom": [
+      "../../services/data-collection/exchange-collector/src/websocket/**/*.ts",
+      "!**/*.d.ts",
+      "!**/node_modules/**"
+    ],
+    "coverageDirectory": "coverage",
+    "coverageReporters": [
+      "text",
+      "lcov",
+      "html",
+      "json-summary"
+    ],
+    "setupFilesAfterEnv": [
+      "<rootDir>/setup.ts"
+    ],
+    "testSequencer": "<rootDir>/test-sequencer.js",
+    "testTimeout": 30000,
+    "maxWorkers": 4
+  }
+}

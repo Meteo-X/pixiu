@@ -6,7 +6,7 @@
 import { EventEmitter } from 'events';
 import { BaseErrorHandler, BaseMonitor, PubSubClientImpl } from '@pixiu/shared-core';
 import { AdapterIntegration, IntegrationConfig } from '../base/adapter-integration';
-import { createBinanceIntegration } from '../binance/integration';
+import { createBinanceDataFlowIntegration } from '../binance/dataflow-integration';
 
 export type AdapterIntegrationConstructor = () => AdapterIntegration;
 
@@ -361,7 +361,7 @@ export class AdapterRegistry extends EventEmitter {
       supportedFeatures: ['websocket', 'trades', 'tickers', 'klines', 'depth'],
       enabled: true
     };
-    this.register('binance', createBinanceIntegration, binanceMetadata);
+    this.register('binance', createBinanceDataFlowIntegration, binanceMetadata);
 
     // 这里可以注册其他内置适配器
     // this.register('okx', createOkxIntegration, { ... });

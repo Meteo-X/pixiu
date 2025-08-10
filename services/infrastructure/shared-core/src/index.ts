@@ -6,6 +6,7 @@
 // 配置管理
 export * from './config/types';
 export * from './config/base-manager';
+export * from './config/unified-config-manager';
 
 // 错误处理
 export {
