@@ -27,6 +27,7 @@ export class BinanceConnector extends EventEmitter {
   private maxReconnectAttempts = 5;
   private isConnected = false;
   private subscribedStreams = new Set<string>();
+  private streamStats = new Map<string, { count: number; lastUpdate: string | null }>();
 
   // Binance WebSocket端点
   private readonly baseUrl = 'wss://stream.binance.com:9443';
@@ -123,6 +124,9 @@ export class BinanceConnector extends EventEmitter {
       
       // Binance Combined Stream格式: {stream: string, data: object}
       if (message.stream && message.data) {
+        // 更新流统计
+        this.updateStreamStats(message.stream);
+        
         const marketData = this.parseMessage(message);
         if (marketData) {
           this.emit('data', marketData);
@@ -131,6 +135,16 @@ export class BinanceConnector extends EventEmitter {
     } catch (error) {
       console.error('Error parsing Binance message:', error);
     }
+  }
+
+  /**
+   * 更新流统计信息
+   */
+  private updateStreamStats(stream: string): void {
+    const stats = this.streamStats.get(stream) || { count: 0, lastUpdate: null };
+    stats.count++;
+    stats.lastUpdate = new Date().toISOString();
+    this.streamStats.set(stream, stats);
   }
 
   /**
@@ -233,5 +247,16 @@ export class BinanceConnector extends EventEmitter {
    */
   getSubscribedStreams(): string[] {
     return Array.from(this.subscribedStreams);
+  }
+
+  /**
+   * 获取流统计信息
+   */
+  getStreamStats(): Record<string, { count: number; lastUpdate: string | null }> {
+    const stats: Record<string, { count: number; lastUpdate: string | null }> = {};
+    for (const [stream, stat] of this.streamStats.entries()) {
+      stats[stream] = { ...stat };
+    }
+    return stats;
   }
 }

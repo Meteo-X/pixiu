@@ -6,17 +6,18 @@
   "workspaces": [
     "services/infrastructure/shared-core",
     "services/infrastructure/adapter-base",
+    "services/infrastructure/test-utils",
     "services/adapters/binance-adapter",
     "services/data-collection/exchange-collector"
   ],
   "scripts": {
     "test": "npm run test:all",
     "test:all": "npm run test:infrastructure && npm run test:adapters && npm run test:services",
-    "test:infrastructure": "npm run test -w @pixiu/shared-core && npm run test -w @pixiu/adapter-base -- --passWithNoTests",
+    "test:infrastructure": "npm run test -w @pixiu/shared-core && npm run test -w @pixiu/adapter-base -- --passWithNoTests && npm run test -w @pixiu/test-utils -- --passWithNoTests",
     "test:adapters": "npm run test -w @pixiu/binance-adapter -- --passWithNoTests",
     "test:services": "npm run test -w @pixiu/exchange-collector -- --passWithNoTests",
     "test:coverage": "npm run test:coverage:infrastructure && npm run test:coverage:adapters && npm run test:coverage:services",
-    "test:coverage:infrastructure": "npm run test:coverage -w @pixiu/shared-core && npm run test:coverage -w @pixiu/adapter-base -- --passWithNoTests",
+    "test:coverage:infrastructure": "npm run test:coverage -w @pixiu/shared-core && npm run test:coverage -w @pixiu/adapter-base -- --passWithNoTests && npm run test:coverage -w @pixiu/test-utils -- --passWithNoTests",
     "test:coverage:adapters": "npm run test:coverage -w @pixiu/binance-adapter -- --passWithNoTests",
     "test:coverage:services": "npm run test:coverage -w @pixiu/exchange-collector -- --passWithNoTests",
     "test:watch": "concurrently \"npm run test:watch -w @pixiu/shared-core\" \"npm run test:watch -w @pixiu/adapter-base\" \"npm run test:watch -w @pixiu/binance-adapter\" \"npm run test:watch -w @pixiu/exchange-collector\"",
@@ -36,7 +37,10 @@
     "clean": "npm run clean:infrastructure && npm run clean:adapters && npm run clean:services",
     "clean:infrastructure": "rm -rf services/infrastructure/*/dist services/infrastructure/*/coverage services/infrastructure/*/node_modules",
     "clean:adapters": "rm -rf services/adapters/*/dist services/adapters/*/coverage services/adapters/*/node_modules",
-    "clean:services": "rm -rf services/data-collection/*/dist services/data-collection/*/coverage services/data-collection/*/node_modules"
+    "clean:services": "rm -rf services/data-collection/*/dist services/data-collection/*/coverage services/data-collection/*/node_modules",
+    "start:exchange-collector": "npm run start:standalone -w @pixiu/exchange-collector",
+    "dev:exchange-collector": "npm run dev:standalone -w @pixiu/exchange-collector",
+    "preview:exchange-collector": "npm run preview -w @pixiu/exchange-collector"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"

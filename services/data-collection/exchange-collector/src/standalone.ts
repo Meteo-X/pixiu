@@ -10,6 +10,8 @@ import { WebSocketServer } from 'ws';
 import { createServer } from 'http';
 import { PubSub } from '@google-cloud/pubsub';
 import { BinanceConnector, BinanceMarketData } from './binance-connector';
+import { createStatsRouter } from './api/stats';
+import { BaseMonitor } from '@pixiu/shared-core';
 
 const app = express();
 const port = parseInt(process.env.PORT || '8080', 10);
@@ -34,12 +36,38 @@ let messageCount = 0;
 let bytesReceived = 0;
 const startTime = Date.now();
 
+// 创建简单监控器实现
+const simpleMonitor = {
+  log: (level: string, message: string, meta?: any) => {
+    console.log(`[${level.toUpperCase()}] ${message}`, meta || '');
+  }
+} as BaseMonitor;
+
+// 创建空的适配器注册表和缓存
+const emptyAdapterRegistry = {
+  getAllInstances: () => new Map()
+} as any;
+
+const emptyDataStreamCache = {
+  getMetrics: () => ({
+    totalEntries: 0,
+    hitCount: 0,
+    missCount: 0,
+    memoryUsage: 0,
+    totalKeys: 0
+  })
+} as any;
+
 // PubSub配置
 const pubsubClient = new PubSub({
   projectId: process.env.GOOGLE_CLOUD_PROJECT || 'pixiu-trading-dev'
 });
-let pubsubEnabled = true;
+
+// 通过环境变量控制PubSub输出 (默认启用)
+let pubsubEnabled = process.env.PUBSUB_ENABLED !== 'false' && process.env.PUBSUB_ENABLED !== '0';
 let pubsubMessageCount = 0;
+
+console.log(`🔧 PubSub Output: ${pubsubEnabled ? 'ENABLED' : 'DISABLED'} (controlled by PUBSUB_ENABLED=${process.env.PUBSUB_ENABLED || 'undefined'})`);
 
 // API路由
 app.get('/api/status', (_req, res) => {
@@ -88,20 +116,65 @@ app.get('/api/adapters', (_req, res) => {
 
 app.get('/api/subscriptions', (_req, res) => {
   const subscribedStreams = binanceConnector.getSubscribedStreams();
-  const subscriptions = subscribedStreams.map(stream => {
+  
+  // 按交易对分组，收集数据类型
+  const subscriptionMap = new Map<string, string[]>();
+  
+  subscribedStreams.forEach(stream => {
     const [symbol, type] = stream.split('@');
+    const upperSymbol = symbol.toUpperCase();
+    
+    if (!subscriptionMap.has(upperSymbol)) {
+      subscriptionMap.set(upperSymbol, []);
+    }
+    subscriptionMap.get(upperSymbol)!.push(type);
+  });
+  
+  const subscriptions = Array.from(subscriptionMap.entries()).map(([symbol, dataTypes]) => {
+    const stats = binanceConnector.getStreamStats();
+    const symbolLower = symbol.toLowerCase();
+    
+    // 计算该交易对所有数据类型的总消息数
+    let totalMessages = 0;
+    let lastUpdate: string | null = null;
+    
+    dataTypes.forEach(dataType => {
+      const streamKey = `${symbolLower}@${dataType}`;
+      const streamStats = stats[streamKey];
+      if (streamStats) {
+        totalMessages += streamStats.count || 0;
+        if (streamStats.lastUpdate) {
+          // 取最新的更新时间
+          if (!lastUpdate || new Date(streamStats.lastUpdate) > new Date(lastUpdate)) {
+            lastUpdate = streamStats.lastUpdate;
+          }
+        }
+      }
+    });
+    
     return {
-      symbol: symbol.toUpperCase(),
-      type: type,
-      status: binanceStatus === 'connected' ? 'active' : 'inactive',
-      exchange: 'binance'
+      exchange: 'binance',
+      symbol: symbol,
+      dataTypes: dataTypes,
+      status: binanceStatus === 'connected' ? 'active' : 'error',
+      metrics: {
+        messagesReceived: totalMessages,
+        lastUpdate: lastUpdate,
+        bytesReceived: Math.round(totalMessages * 150), // 估算字节数
+        errorCount: 0
+      }
     };
   });
   
   res.json({
     subscriptions: subscriptions,
-    total: subscriptions.length,
-    active: subscriptions.filter((s: any) => s.status === 'active').length
+    summary: {
+      total: subscriptions.length,
+      active: subscriptions.filter(s => s.status === 'active').length,
+      paused: subscriptions.filter(s => s.status === 'paused').length,
+      error: subscriptions.filter(s => s.status === 'error').length
+    },
+    timestamp: new Date().toISOString()
   });
 });
 
@@ -141,6 +214,11 @@ app.get('/api/pubsub/status', (_req, res) => {
       messagesPublished: pubsubMessageCount,
       lastPublished: lastBinanceData ? new Date(lastBinanceData.timestamp).toISOString() : null,
       errorCount: 0,
+      controlledBy: 'environment variable',
+      environmentConfig: {
+        PUBSUB_ENABLED: process.env.PUBSUB_ENABLED || 'undefined (defaults to true)',
+        GOOGLE_CLOUD_PROJECT: process.env.GOOGLE_CLOUD_PROJECT || 'pixiu-trading-dev'
+      },
       config: {
         projectId: process.env.GOOGLE_CLOUD_PROJECT || 'pixiu-trading-dev',
         useEmulator: false,
@@ -197,52 +275,9 @@ app.get('/api/pubsub/topics', (_req, res) => {
   });
 });
 
-// 统计信息
-app.get('/api/stats', (_req, res) => {
-  const memoryInfo = process.memoryUsage();
-  const isConnected = binanceConnector.isConnectedToBinance();
-  const subscribedStreams = binanceConnector.getSubscribedStreams();
-  
-  res.json({
-    adapters: {
-      binance: {
-        status: binanceStatus,
-        subscriptions: subscribedStreams.length,
-        messagesPerSecond: messageCount > 0 ? ((messageCount * 1000) / (Date.now() - startTime)).toFixed(1) : '0.0',
-        bytesPerSecond: bytesReceived > 0 ? ((bytesReceived * 1000) / (Date.now() - startTime)).toFixed(0) : '0',
-        errorRate: 0,
-        uptime: process.uptime(),
-        lastUpdate: lastBinanceData ? new Date(lastBinanceData.timestamp).toISOString() : new Date().toISOString(),
-        subscribedStreams: subscribedStreams
-      }
-    },
-    system: {
-      totalSubscriptions: subscribedStreams.length,
-      totalAdapters: 1,
-      activeAdapters: isConnected ? 1 : 0,
-      totalMessagesReceived: messageCount,
-      totalBytesReceived: bytesReceived,
-      systemUptime: process.uptime(),
-      memoryUsage: {
-        used: memoryInfo.heapUsed,
-        total: memoryInfo.heapTotal,
-        percentage: Math.round((memoryInfo.heapUsed / memoryInfo.heapTotal) * 100)
-      }
-    },
-    cache: {
-      totalEntries: 0,
-      hitRate: 0,
-      memoryUsage: 0,
-      keyCount: 0
-    },
-    timestamp: new Date().toISOString()
-  });
-});
+// 统一统计路由将在binanceConnector初始化后设置
 
-// 服务前端应用
-app.get('*', (_req, res) => {
-  res.sendFile(path.join(__dirname, '../frontend/dist/index.html'));
-});
+// 前端应用路由将在最后设置
 
 // WebSocket客户端管理
 const wsClients = new Set<any>();
@@ -301,6 +336,11 @@ binanceConnector.on('data', (marketData: BinanceMarketData) => {
     publishToPubSub(marketData).catch(error => {
       console.error('❌ Failed to publish to PubSub:', error);
     });
+  } else {
+    // 每200条消息提示一次PubSub已禁用
+    if (messageCount % 200 === 0) {
+      console.log(`⚠️  PubSub output is DISABLED - ${messageCount} messages skipped (set PUBSUB_ENABLED=true to enable)`);
+    }
   }
   
   // 转发真实市场数据给WebSocket客户端
@@ -323,7 +363,11 @@ binanceConnector.on('data', (marketData: BinanceMarketData) => {
   // 每100条消息记录一次
   if (messageCount % 100 === 0) {
     console.log(`📊 Received ${messageCount} messages from Binance (${(bytesReceived / 1024).toFixed(1)}KB total)`);
-    console.log(`📡 Published ${pubsubMessageCount} messages to PubSub`);
+    if (pubsubEnabled) {
+      console.log(`📡 Published ${pubsubMessageCount} messages to PubSub`);
+    } else {
+      console.log(`⚠️  PubSub output DISABLED - ${messageCount - pubsubMessageCount} messages skipped`);
+    }
   }
 });
 
@@ -458,6 +502,28 @@ wss.on('connection', (ws, req) => {
     console.error('❌ WebSocket error:', error);
     wsClients.delete(ws);
   });
+});
+
+// 设置统一的stats路由
+const statsRouter = createStatsRouter(
+  emptyAdapterRegistry,
+  simpleMonitor,
+  emptyDataStreamCache,
+  binanceConnector,
+  {
+    get messageCount() { return messageCount; },
+    get bytesReceived() { return bytesReceived; },
+    get startTime() { return startTime; },
+    get status() { return binanceStatus; },
+    get lastUpdate() { return lastBinanceData ? new Date(lastBinanceData.timestamp).toISOString() : undefined; }
+  }
+);
+
+app.use('/api/stats', statsRouter);
+
+// 设置前端应用路由（必须在所有API路由之后）
+app.get('*', (_req, res) => {
+  res.sendFile(path.join(__dirname, '../frontend/dist/index.html'));
 });
 
 // 启动Binance连接器

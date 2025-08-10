@@ -1,20 +1,27 @@
 /**
- * 测试环境设置 - 增强版
+ * 测试环境设置 - 增强版 (使用@pixiu/test-utils基础配置)
  * 在每个测试文件运行后执行的设置
  */
 
+import { setupTests } from '@pixiu/test-utils';
 import { globalCache } from '@pixiu/shared-core';
 import { setupGlobalWebSocketMock } from './mocks/websocket-mock';
 
-// 设置环境变量
-process.env.NODE_ENV = 'test';
-process.env.LOG_LEVEL = 'error';
-process.env.JEST_WORKER_ID = process.env.JEST_WORKER_ID || '1';
+// 使用test-utils进行基础设置，包括环境变量和控制台过滤
+setupTests({
+  timeout: 30000, // 适配器测试需要较长超时
+  console: 'quiet',
+  enablePubSubMock: false, // binance-adapter不需要PubSub
+  enableWebSocketMock: false, // 使用自定义WebSocket Mock
+  enableGlobalCacheCleanup: false, // 手动处理缓存清理
+  env: {
+    NODE_ENV: 'test',
+    LOG_LEVEL: 'error',
+    JEST_WORKER_ID: process.env.JEST_WORKER_ID || '1'
+  }
+});
 
-// 设置默认测试超时
-jest.setTimeout(30000);
-
-// 设置全局WebSocket Mock
+// 设置全局WebSocket Mock（项目特定）
 setupGlobalWebSocketMock({
   connectionDelay: 50,
   shouldFailConnection: false,
@@ -70,7 +77,7 @@ if (process.env.CI) {
 }
 
 // 测试工具函数
-global.testUtils = {
+(global as any).testUtils = {
   // 等待函数
   wait: (ms: number) => new Promise(resolve => setTimeout(resolve, ms)),
   
@@ -153,26 +160,6 @@ jest.mock('axios', () => ({
   post: jest.fn().mockResolvedValue({ data: {} })
 }));
 
-// 控制台输出过滤
-const originalConsoleError = console.error;
-const originalConsoleWarn = console.warn;
-
-console.error = (...args) => {
-  const message = args[0]?.toString() || '';
-  if (message.includes('Warning:') || message.includes('deprecated')) {
-    return;
-  }
-  originalConsoleError.apply(console, args);
-};
-
-console.warn = (...args) => {
-  const message = args[0]?.toString() || '';
-  // 在测试中通常不需要看到某些警告
-  if (message.includes('ExperimentalWarning')) {
-    return;
-  }
-  originalConsoleWarn.apply(console, args);
-};
 
 // 导出以使此文件成为模块
 export {};

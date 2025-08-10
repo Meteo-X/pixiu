@@ -13,7 +13,9 @@ import {
   type WebSocketProxyConfig,
   type MonitoringConfig,
   type PubSubConfig,
-  type LoggingConfig
+  type LoggingConfig,
+  DEFAULT_CONFIG_VALUES,
+  createEnvMiddleware
 } from '@pixiu/shared-core';
 import { resolve } from 'path';
 
@@ -26,7 +28,7 @@ export interface ExchangeCollectorConfig extends UnifiedConfig {
     binance?: BinanceAdapterConfig;
     okx?: OkxAdapterConfig;
     bybit?: BybitAdapterConfig;
-    [key: string]: AdapterConfig | undefined;
+    [key: string]: AdapterConfig;
   };
   
   // 数据流特定配置
@@ -278,16 +280,7 @@ export class ExchangeCollectorConfigManager {
 
   private getDefaultDataFlowConfig(): ExchangeDataFlowConfig {
     return {
-      bufferSize: 1000,
-      batchSize: 100,
-      flushInterval: 1000,
-      enableCompression: false,
-      enableMessageOrdering: false,
-      performance: {
-        maxMemoryUsage: 512 * 1024 * 1024,
-        gcThreshold: 0.8,
-        enableOptimization: true
-      },
+      ...DEFAULT_CONFIG_VALUES.dataflow,
       exchange: {
         enableMultiExchange: true,
         crossExchangeValidation: false,

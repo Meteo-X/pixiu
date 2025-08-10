@@ -6,6 +6,7 @@ import Joi from 'joi';
 import { merge } from 'lodash';
 import Ajv from 'ajv';
 import addFormats from 'ajv-formats';
+import { DEFAULT_CONFIG_VALUES, CONFIG_VALIDATION_RULES } from './config-constants';
 
 /**
  * 统一配置接口定义
@@ -300,74 +301,9 @@ export class UnifiedConfigManager extends EventEmitter {
    */
   getDefaultConfiguration(): UnifiedConfig {
     return {
-      service: {
-        name: 'exchange-collector',
-        version: '1.0.0',
-        environment: 'development',
-        server: {
-          port: 8080,
-          host: '0.0.0.0',
-          enableCors: true,
-          timeout: 30000
-        }
-      },
+      ...DEFAULT_CONFIG_VALUES,
       adapters: {},
-      dataflow: {
-        bufferSize: 1000,
-        batchSize: 100,
-        flushInterval: 1000,
-        enableCompression: false,
-        enableMessageOrdering: false,
-        performance: {
-          maxMemoryUsage: 512 * 1024 * 1024, // 512MB
-          gcThreshold: 0.8,
-          enableOptimization: true
-        }
-      },
-      websocket: {
-        enabled: true,
-        port: 8081,
-        maxConnections: 1000,
-        messageBuffer: 10000,
-        enableHeartbeat: true,
-        heartbeatInterval: 30000
-      },
-      monitoring: {
-        enableMetrics: true,
-        enableHealthCheck: true,
-        metricsInterval: 30000,
-        healthCheckInterval: 30000,
-        statsReportInterval: 30000,
-        verboseStats: false,
-        showZeroValues: false,
-        prometheus: {
-          enabled: true,
-          port: 9090,
-          path: '/metrics'
-        }
-      },
-      pubsub: {
-        projectId: 'pixiu-trading-dev',
-        useEmulator: false,
-        topicPrefix: 'market-data',
-        publishSettings: {
-          enableBatching: true,
-          batchSize: 100,
-          batchTimeout: 1000,
-          enableMessageOrdering: false,
-          retrySettings: {
-            maxRetries: 3,
-            initialRetryDelay: 1000,
-            maxRetryDelay: 60000
-          }
-        }
-      },
-      logging: {
-        level: 'info',
-        format: 'json',
-        output: 'console'
-      }
-    };
+    } as UnifiedConfig;
   }
 
   /**
@@ -453,27 +389,9 @@ export class UnifiedConfigManager extends EventEmitter {
   }
 
   private loadEnvironmentConfig(): Partial<UnifiedConfig> {
-    const config: any = {};
-    
-    // 映射关键的环境变量
-    const envMappings = [
-      { env: 'PORT', path: 'service.server.port', type: 'number' },
-      { env: 'HOST', path: 'service.server.host', type: 'string' },
-      { env: 'LOG_LEVEL', path: 'logging.level', type: 'string' },
-      { env: 'PUBSUB_PROJECT_ID', path: 'pubsub.projectId', type: 'string' },
-      { env: 'PUBSUB_EMULATOR_HOST', path: 'pubsub.emulatorHost', type: 'string' },
-      { env: 'METRICS_PORT', path: 'monitoring.prometheus.port', type: 'number' }
-    ];
-
-    envMappings.forEach(({ env, path, type }) => {
-      const value = process.env[env];
-      if (value !== undefined) {
-        const convertedValue = type === 'number' ? parseInt(value, 10) : value;
-        this.setNestedValue(config, path.split('.'), convertedValue);
-      }
-    });
-
-    return config;
+    // 使用统一的环境变量处理工具
+    const { EnvironmentProcessor } = require('./env-utils');
+    return EnvironmentProcessor.buildConfigFromEnv();
   }
 
   private watchConfigFile(filePath: string): void {

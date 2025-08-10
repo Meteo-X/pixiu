@@ -3,6 +3,13 @@ import { BaseMonitor } from '@pixiu/shared-core';
 import { AdapterRegistry } from '../adapters/registry/adapter-registry';
 import { DataStreamCache } from '../cache';
 
+// 简化连接器适配器接口
+export interface SimpleConnectorAdapter {
+  isConnectedToBinance(): boolean;
+  getSubscribedStreams(): string[];
+  getStreamStats(): Record<string, { count: number; lastUpdate: string | null }>;
+}
+
 export interface RealTimeStats {
   adapters: {
     [exchangeName: string]: {
@@ -61,7 +68,15 @@ export interface HistoricalData {
 export function createStatsRouter(
   adapterRegistry: AdapterRegistry,
   monitor: BaseMonitor,
-  dataStreamCache: DataStreamCache
+  dataStreamCache: DataStreamCache,
+  simpleConnector?: SimpleConnectorAdapter,
+  simpleConnectorStats?: {
+    messageCount: number;
+    bytesReceived: number;
+    startTime: number;
+    status: string;
+    lastUpdate?: string;
+  }
 ): Router {
   const router = Router();
   const statsHistory: Array<RealTimeStats> = [];
@@ -197,61 +212,92 @@ export function createStatsRouter(
    */
   async function collectRealTimeStats(): Promise<RealTimeStats> {
     const adapters: RealTimeStats['adapters'] = {};
-    const adaptersMap = adapterRegistry.getAllInstances();
-    
     let totalSubscriptions = 0;
     let totalMessagesReceived = 0;
     let totalBytesReceived = 0;
     let activeAdapters = 0;
 
-    for (const [exchangeName, adapter] of adaptersMap) {
-      try {
-        const metrics = adapter.getMetrics();
-        const isHealthy = adapter.isHealthy();
-        
-        if (isHealthy) {
-          activeAdapters++;
+    // 简单连接器模式
+    if (simpleConnector && simpleConnectorStats) {
+      const isConnected = simpleConnector.isConnectedToBinance();
+      const subscribedStreams = simpleConnector.getSubscribedStreams();
+      
+      if (isConnected) {
+        activeAdapters = 1;
+      }
+
+      adapters.binance = {
+        status: simpleConnectorStats.status as 'connected' | 'disconnected' | 'error',
+        subscriptions: subscribedStreams.length,
+        messagesPerSecond: simpleConnectorStats.messageCount > 0 ? 
+          ((simpleConnectorStats.messageCount * 1000) / (Date.now() - simpleConnectorStats.startTime)) : 0,
+        bytesPerSecond: simpleConnectorStats.bytesReceived > 0 ? 
+          ((simpleConnectorStats.bytesReceived * 1000) / (Date.now() - simpleConnectorStats.startTime)) : 0,
+        errorRate: 0,
+        uptime: Date.now() - simpleConnectorStats.startTime,
+        lastUpdate: simpleConnectorStats.lastUpdate || new Date().toISOString()
+      };
+
+      totalSubscriptions = subscribedStreams.length;
+      totalMessagesReceived = simpleConnectorStats.messageCount;
+      totalBytesReceived = simpleConnectorStats.bytesReceived;
+    } else {
+      // 标准适配器注册表模式
+      const adaptersMap = adapterRegistry.getAllInstances();
+
+      for (const [exchangeName, adapter] of adaptersMap) {
+        try {
+          const metrics = adapter.getMetrics();
+          const isHealthy = adapter.isHealthy();
+          
+          if (isHealthy) {
+            activeAdapters++;
+          }
+
+          const adapterStats = {
+            status: isHealthy ? 'connected' as const : 'error' as const,
+            subscriptions: 0,
+            messagesPerSecond: calculateRate((metrics as any).messagesReceived || 0, 'messages'),
+            bytesPerSecond: calculateRate((metrics as any).bytesReceived || 0, 'bytes'),
+            errorRate: calculateErrorRate((metrics as any).errorCount || 0, (metrics as any).messagesReceived || 0),
+            uptime: Date.now() - startTime,
+            lastUpdate: new Date().toISOString()
+          };
+
+          adapters[exchangeName] = adapterStats;
+          totalMessagesReceived += (metrics as any).messagesReceived || 0;
+          totalBytesReceived += (metrics as any).bytesReceived || 0;
+          
+        } catch (error) {
+          adapters[exchangeName] = {
+            status: 'error',
+            subscriptions: 0,
+            messagesPerSecond: 0,
+            bytesPerSecond: 0,
+            errorRate: 1.0,
+            uptime: 0,
+            lastUpdate: new Date().toISOString()
+          };
         }
-
-        const adapterStats = {
-          status: isHealthy ? 'connected' as const : 'error' as const,
-          subscriptions: 0,
-          messagesPerSecond: calculateRate((metrics as any).messagesReceived || 0, 'messages'),
-          bytesPerSecond: calculateRate((metrics as any).bytesReceived || 0, 'bytes'),
-          errorRate: calculateErrorRate((metrics as any).errorCount || 0, (metrics as any).messagesReceived || 0),
-          uptime: Date.now() - startTime,
-          lastUpdate: new Date().toISOString()
-        };
-
-        adapters[exchangeName] = adapterStats;
-        totalMessagesReceived += (metrics as any).messagesReceived || 0;
-        totalBytesReceived += (metrics as any).bytesReceived || 0;
-        
-      } catch (error) {
-        adapters[exchangeName] = {
-          status: 'error',
-          subscriptions: 0,
-          messagesPerSecond: 0,
-          bytesPerSecond: 0,
-          errorRate: 1.0,
-          uptime: 0,
-          lastUpdate: new Date().toISOString()
-        };
       }
     }
 
     const memoryUsage = process.memoryUsage();
-    const cacheMetrics = dataStreamCache.getMetrics();
+    const cacheMetrics = simpleConnector ? 
+      { totalEntries: 0, hitCount: 0, missCount: 0, memoryUsage: 0, totalKeys: 0 } : 
+      dataStreamCache.getMetrics();
 
     return {
       adapters,
       system: {
         totalSubscriptions,
-        totalAdapters: adaptersMap.size,
+        totalAdapters: simpleConnector ? 1 : adapterRegistry.getAllInstances().size,
         activeAdapters,
         totalMessagesReceived,
         totalBytesReceived,
-        systemUptime: Date.now() - startTime,
+        systemUptime: simpleConnector && simpleConnectorStats ? 
+          Date.now() - simpleConnectorStats.startTime : 
+          Date.now() - startTime,
         memoryUsage: {
           used: memoryUsage.heapUsed,
           total: memoryUsage.heapTotal,

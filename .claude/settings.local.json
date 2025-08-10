@@ -60,7 +60,9 @@
       "Bash(./run-tests.sh:*)",
       "Bash(tree:*)",
       "Bash(npx depcheck:*)",
-      "Bash(npx ts-unused-exports:*)"
+      "Bash(npx ts-unused-exports:*)",
+      "Bash(PUBSUB_ENABLED=false npx ts-node src/standalone.ts)",
+      "Bash(git reset:*)"
     ],
     "deny": []
   }

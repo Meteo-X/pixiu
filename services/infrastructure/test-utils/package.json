@@ -1,0 +1,39 @@
+{
+  "name": "@pixiu/test-utils",
+  "version": "1.0.0",
+  "description": "Pixiu项目共享测试工具包",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc --skipLibCheck",
+    "clean": "rm -rf dist",
+    "test": "jest --passWithNoTests",
+    "test:watch": "jest --watch --passWithNoTests",
+    "lint": "echo 'Linting test-utils...'",
+    "format": "echo 'Formatting test-utils...'"
+  },
+  "keywords": [
+    "testing",
+    "mocks",
+    "utilities",
+    "jest",
+    "pixiu"
+  ],
+  "author": "Pixiu Team",
+  "license": "MIT",
+  "dependencies": {
+    "@google-cloud/pubsub": "^4.0.0",
+    "ws": "^8.14.0"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.0",
+    "@types/node": "^20.0.0",
+    "@types/ws": "^8.5.0",
+    "jest": "^29.5.0",
+    "ts-jest": "^29.1.0",
+    "typescript": "^5.0.0"
+  },
+  "peerDependencies": {
+    "jest": "^29.0.0"
+  }
+}
